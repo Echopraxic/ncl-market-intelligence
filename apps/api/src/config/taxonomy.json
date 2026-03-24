@@ -1,0 +1,153 @@
+{
+  "version": "1.0",
+  "categories": {
+    "Food & Beverage": {
+      "Snacks": [
+        "Protein Bars",
+        "Nuts & Seeds",
+        "Crackers",
+        "Chips & Crisps",
+        "Dried Fruit"
+      ],
+      "Beverages": [
+        "Energy Drinks",
+        "Functional Water",
+        "Cold Brew Coffee",
+        "Health Shots",
+        "Plant-Based Milk"
+      ],
+      "Health Foods": [
+        "Supplements",
+        "Protein Powder",
+        "Superfoods",
+        "Meal Replacements",
+        "Probiotics"
+      ],
+      "Condiments & Sauces": [
+        "Hot Sauce",
+        "Salad Dressing",
+        "Cooking Sauces",
+        "Spice Blends"
+      ]
+    },
+    "Beauty & Personal Care": {
+      "Skincare": [
+        "Moisturisers",
+        "Serums",
+        "SPF",
+        "Eye Care",
+        "Cleansers"
+      ],
+      "Haircare": [
+        "Shampoo",
+        "Conditioner",
+        "Treatments",
+        "Styling"
+      ],
+      "Body Care": [
+        "Body Lotion",
+        "Bath Products",
+        "Deodorant",
+        "Hand Care"
+      ],
+      "Cosmetics": [
+        "Foundation",
+        "Lip Products",
+        "Eye Products",
+        "Blush & Bronzer"
+      ]
+    },
+    "Toys & Games": {
+      "Educational": [
+        "STEM Toys",
+        "Puzzles",
+        "Art & Craft",
+        "Reading Aids"
+      ],
+      "Active Play": [
+        "Outdoor Toys",
+        "Sports Equipment",
+        "Balance & Coordination"
+      ],
+      "Digital & Interactive": [
+        "Electronic Games",
+        "AR/VR Toys",
+        "Coding Kits"
+      ],
+      "Collectibles": [
+        "Action Figures",
+        "Trading Cards",
+        "Board Games"
+      ]
+    },
+    "Home Goods": {
+      "Kitchen": [
+        "Cookware",
+        "Small Appliances",
+        "Storage",
+        "Utensils & Gadgets"
+      ],
+      "Organisation": [
+        "Storage Solutions",
+        "Closet Systems",
+        "Desk Organisation"
+      ],
+      "Home Decor": [
+        "Lighting",
+        "Textiles",
+        "Wall Art",
+        "Plants & Planters"
+      ],
+      "Cleaning": [
+        "Eco Cleaning",
+        "Laundry",
+        "Surface Care"
+      ]
+    },
+    "Health & Wellness": {
+      "Fitness": [
+        "Home Gym Equipment",
+        "Yoga & Pilates",
+        "Recovery",
+        "Wearables"
+      ],
+      "Sleep": [
+        "Sleep Aids",
+        "Bedding",
+        "Pillows",
+        "Aromatherapy"
+      ],
+      "Mental Wellbeing": [
+        "Meditation",
+        "Journaling",
+        "Stress Relief"
+      ],
+      "Vitamins & Supplements": [
+        "Vitamins",
+        "Minerals",
+        "Herbal",
+        "Sports Nutrition"
+      ]
+    },
+    "Pet": {
+      "Dog": [
+        "Food",
+        "Treats",
+        "Accessories",
+        "Grooming",
+        "Health"
+      ],
+      "Cat": [
+        "Food",
+        "Treats",
+        "Accessories",
+        "Health"
+      ],
+      "Other Pets": [
+        "Small Animals",
+        "Fish",
+        "Birds"
+      ]
+    }
+  }
+}

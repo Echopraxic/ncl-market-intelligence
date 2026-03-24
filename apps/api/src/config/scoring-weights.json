@@ -1,0 +1,43 @@
+{
+  "version": "1.0",
+  "categoryOpportunityScore": {
+    "demandGrowth": 0.3,
+    "marginPotential": 0.25,
+    "regulatoryComplexity": 0.25,
+    "logisticsFeasibility": 0.2
+  },
+  "brandFitScore": {
+    "euDemandSignalStrength": 0.3,
+    "productMarketFit": 0.25,
+    "priceCompetitiveness": 0.2,
+    "logisticsViability": 0.25
+  },
+  "niSuitabilityPreScore": {
+    "vatAdvantagePotential": 0.4,
+    "distributionEfficiencyGains": 0.3,
+    "regulatoryPathwayClarity": 0.3
+  },
+  "compositeWeights": {
+    "categoryOpportunityScore": 0.4,
+    "brandFitScore": 0.35,
+    "niSuitabilityPreScore": 0.25
+  },
+  "regulatoryComplexityLookup": {
+    "Food & Beverage": 0.2,
+    "Beauty & Personal Care": 0.4,
+    "Toys & Games": 0.5,
+    "Home Goods": 0.8,
+    "Health & Wellness": 0.3,
+    "Pet": 0.6
+  },
+  "thresholds": {
+    "trendingGrowthRate": 0.15,
+    "opportunityAlertScore": 80,
+    "leadGenerationComposite": 75,
+    "leadGenerationCategory": 70,
+    "outreachComposite": 80,
+    "humanApprovalRequired": 70,
+    "maxOutreachPerDay": 50,
+    "minDaysBetweenOutreach": 3
+  }
+}
