@@ -30,8 +30,53 @@
     "Health & Wellness": 0.3,
     "Pet": 0.6
   },
+  "categoryAliases": {
+    "food_beverage":           ["food & beverage", "food and beverage", "food", "beverage", "drinks", "fmcg", "grocery", "snack", "snacks", "confectionery"],
+    "supplements":             ["health & wellness", "health and wellness", "health", "wellness", "supplements", "nutraceuticals", "vitamins", "dietary supplements", "functional food", "sports nutrition", "protein"],
+    "cosmetics_personal_care": ["beauty", "cosmetics", "personal care", "skincare", "haircare", "beauty & personal care", "beauty and personal care", "fragrance", "grooming"],
+    "home_goods":              ["home goods", "home & garden", "home and garden", "household", "home", "homeware", "kitchenware", "kitchen", "interior", "furnishings", "décor", "decor"],
+    "toys_games":              ["toys & games", "toys and games", "toys", "games", "children", "kids", "juvenile", "play", "sport", "sports", "leisure", "outdoor"]
+  },
+  "tradeShowCategoryKeywords": {
+    "food_beverage":           ["food", "beverage", "drink", "nutrition", "grocery", "fmcg", "snack"],
+    "supplements":             ["supplement", "health", "wellness", "nutraceutical", "vitamin", "protein", "functional"],
+    "cosmetics_personal_care": ["cosmetic", "beauty", "personal care", "skincare", "haircare", "fragrance"],
+    "home_goods":              ["home", "household", "furniture", "interior", "homeware", "kitchen", "lifestyle"],
+    "toys_games":              ["toy", "game", "play", "children", "kids", "juvenile", "sport", "leisure"]
+  },
+  "opportunityTiers": {
+    "breakthrough": {
+      "minGrowthRate": 0.50,
+      "description": "Emerging category with first-mover advantage potential",
+      "engagement": "immediate_outreach_and_pitch_generation"
+    },
+    "accelerating": {
+      "minGrowthRate": 0.25,
+      "description": "Proven demand, brands actively scaling — competitive entry window",
+      "engagement": "competitive_entry_outreach"
+    },
+    "sustained": {
+      "minGrowthRate": 0.10,
+      "description": "Established market — NI routing efficiency is key value proposition",
+      "engagement": "ni_routing_efficiency_pitch"
+    },
+    "mature": {
+      "minGrowthRate": 0.05,
+      "description": "Slow-growth market requiring distinct positioning or niche targeting",
+      "engagement": "niche_targeting_or_differentiation"
+    },
+    "disrupted": {
+      "minGrowthRate": null,
+      "description": "Negative growth driven by structural shifts (supplier exits, tariff changes) creating vacuum US brands can fill",
+      "engagement": "vacuum_fill_opportunity"
+    },
+    "watch": {
+      "minGrowthRate": null,
+      "description": "Volatile or noisy pattern — monitor until clearer signal emerges; no resource allocation",
+      "engagement": "monitor_only"
+    }
+  },
   "thresholds": {
-    "trendingGrowthRate": 0.15,
     "opportunityAlertScore": 80,
     "leadGenerationComposite": 75,
     "leadGenerationCategory": 70,

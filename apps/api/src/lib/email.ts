@@ -13,7 +13,7 @@ export async function sendEmail({ to, subject, html, text }: {
     from: EMAIL_FROM,
     to: Array.isArray(to) ? to : [to],
     subject,
-    html,
-    text,
-  });
+    ...(html ? { html } : {}),
+    ...(text ? { text } : {}),
+  } as Parameters<typeof resend.emails.send>[0]);
 }

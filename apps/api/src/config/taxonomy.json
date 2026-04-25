@@ -1,153 +1,862 @@
 {
-  "version": "1.0",
-  "categories": {
-    "Food & Beverage": {
-      "Snacks": [
-        "Protein Bars",
-        "Nuts & Seeds",
-        "Crackers",
-        "Chips & Crisps",
-        "Dried Fruit"
-      ],
-      "Beverages": [
-        "Energy Drinks",
-        "Functional Water",
-        "Cold Brew Coffee",
-        "Health Shots",
-        "Plant-Based Milk"
-      ],
-      "Health Foods": [
-        "Supplements",
-        "Protein Powder",
-        "Superfoods",
-        "Meal Replacements",
-        "Probiotics"
-      ],
-      "Condiments & Sauces": [
-        "Hot Sauce",
-        "Salad Dressing",
-        "Cooking Sauces",
-        "Spice Blends"
+  "version": "2.2.0",
+  "metadata": {
+    "total_categories": 117,
+    "total_leaf_nodes": 79,
+    "last_updated": "2026-03-24"
+  },
+  "categories": [
+    {
+      "id": "food_beverage",
+      "name": "Food & Beverage",
+      "level": 1,
+      "priority": "high",
+      "subcategories": [
+        {
+          "id": "food_beverage_snacks",
+          "name": "Snacks",
+          "level": 2,
+          "subcategories": [
+            { "id": "food_beverage_snacks_protein_bars", "name": "Protein Bars", "level": 3, "keywords": ["protein bar", "energy bar", "nutrition bar"] },
+            { "id": "food_beverage_snacks_meal_bars", "name": "Meal Replacement Bars", "level": 3, "keywords": ["meal replacement", "breakfast bar"] },
+            { "id": "food_beverage_snacks_chips", "name": "Chips & Crisps", "level": 3, "keywords": ["chips", "crisps", "kale chips"] },
+            { "id": "food_beverage_snacks_nuts", "name": "Nuts & Seeds", "level": 3, "keywords": ["almonds", "cashews", "trail mix"] },
+            { "id": "food_beverage_snacks_dried_fruit", "name": "Dried Fruit", "level": 3, "keywords": ["dried mango", "date", "fig"] },
+            { "id": "food_beverage_snacks_jerky", "name": "Jerky & Meat Snacks", "level": 3, "keywords": ["beef jerky", "turkey jerky", "bison"] }
+          ]
+        },
+        {
+          "id": "food_beverage_beverages",
+          "name": "Beverages",
+          "level": 2,
+          "subcategories": [
+            { "id": "food_beverage_beverages_energy_drinks", "name": "Energy Drinks", "level": 3, "keywords": ["energy drink", "caffeine", "pre-workout drink"] },
+            { "id": "food_beverage_beverages_protein_drinks", "name": "Protein Drinks", "level": 3, "keywords": ["protein shake", "protein water", "clear protein"] },
+            { "id": "food_beverage_beverages_functional", "name": "Functional Beverages", "level": 3, "keywords": ["kombucha", "collagen water", "adaptogen drink", "functional drink"], "localKeywords": { "DE": ["Kombucha", "funktionelles Getränk", "Adaptogen Drink", "Kefir Drink"], "FR": ["kombucha", "boisson fonctionnelle", "boisson adaptogène"], "NL": ["kombucha", "functionele drank", "kefir drank"], "ES": ["kombucha", "bebida funcional"], "IT": ["kombucha", "bevanda funzionale"] } },
+            { "id": "food_beverage_beverages_sports_drinks", "name": "Sports Drinks", "level": 3, "keywords": ["electrolytes", "isotonic", "hydration", "sports drink"], "localKeywords": { "DE": ["Elektrolyte Sport", "isotonisches Getränk", "Sportgetränk", "Hydration Drink"], "FR": ["électrolytes sport", "boisson isotonique", "boisson sportive"], "NL": ["elektrolyten sport", "isotone drank", "sportdrank"], "ES": ["electrolitos deporte", "bebida isotónica"], "IT": ["elettroliti sport", "bevanda isotonica"] } },
+            { "id": "food_beverage_beverages_plant_milk", "name": "Plant-Based Milks", "level": 3, "keywords": ["oat milk", "almond milk", "soy milk"] }
+          ]
+        },
+        {
+          "id": "food_beverage_supplements",
+          "name": "Supplements",
+          "level": 2,
+          "subcategories": [
+            {
+              "id": "food_beverage_supplements_protein",
+              "name": "Protein Supplements",
+              "level": 3,
+              "subcategories": [
+                { "id": "food_beverage_supplements_protein_whey", "name": "Whey Protein", "level": 4 },
+                { "id": "food_beverage_supplements_protein_plant", "name": "Plant Protein", "level": 4, "keywords": ["plant protein powder", "vegan protein", "pea protein", "hemp protein"], "localKeywords": { "DE": ["pflanzliches Protein", "veganes Protein Pulver", "Erbsenprotein", "Hanfprotein"], "FR": ["protéine végétale", "protéine vegan", "protéine de pois"], "NL": ["plantaardig eiwit", "vegan proteïne poeder", "erwtenproteïne"], "ES": ["proteína vegetal", "proteína vegana", "proteína de guisante"], "IT": ["proteina vegetale", "proteina vegana", "proteina dei piselli"] } },
+                { "id": "food_beverage_supplements_protein_collagen", "name": "Collagen", "level": 4, "keywords": ["collagen supplement", "collagen powder", "collagen peptides"], "localKeywords": { "DE": ["Kollagen Pulver", "Kollagen Supplement", "Kollagenpeptide"], "FR": ["collagène complément", "poudre de collagène", "peptides de collagène"], "NL": ["collageen supplement", "collageen poeder"], "ES": ["colágeno suplemento", "péptidos de colágeno"], "IT": ["collagene integratore", "collagene polvere"] } }
+              ]
+            },
+            {
+              "id": "food_beverage_supplements_performance",
+              "name": "Performance",
+              "level": 3,
+              "subcategories": [
+                { "id": "food_beverage_supplements_performance_pre_workout", "name": "Pre-Workout", "level": 4, "keywords": ["pre-workout", "pre workout supplement", "pre-workout powder"], "localKeywords": { "DE": ["Pre-Workout", "Pre-Workout Booster", "Pre-Workout Pulver"], "FR": ["pré-entraînement", "booster pré-entraînement"], "NL": ["pre-workout", "pre-workout supplement"], "ES": ["pre-entreno", "suplemento pre-entrenamiento"], "IT": ["pre-workout", "integratore pre-allenamento"] } },
+                { "id": "food_beverage_supplements_performance_bcaa", "name": "BCAAs & EAAs", "level": 4 },
+                { "id": "food_beverage_supplements_performance_creatine", "name": "Creatine", "level": 4, "keywords": ["creatine", "creatine monohydrate", "creatine powder"], "localKeywords": { "DE": ["Kreatin", "Kreatin Monohydrat", "Kreatin Pulver"], "FR": ["créatine", "créatine monohydrate"], "NL": ["creatine", "creatine monohydraat"], "ES": ["creatina", "creatina monohidrato"], "IT": ["creatina", "creatina monoidrato"] } }
+              ]
+            },
+            {
+              "id": "food_beverage_supplements_wellness",
+              "name": "Wellness",
+              "level": 3,
+              "subcategories": [
+                { "id": "food_beverage_supplements_wellness_vitamins", "name": "Vitamins", "level": 4 },
+                { "id": "food_beverage_supplements_wellness_minerals", "name": "Minerals", "level": 4 },
+                { "id": "food_beverage_supplements_wellness_adaptogens", "name": "Adaptogens", "level": 4, "keywords": ["adaptogens", "ashwagandha", "rhodiola", "lion's mane"], "localKeywords": { "DE": ["Adaptogen", "Ashwagandha Pulver", "Rhodiola Rosea", "Löwenmähne Pilz"], "FR": ["adaptogène", "ashwagandha", "rhodiola", "crinière de lion"], "NL": ["adaptogeen", "ashwagandha", "rhodiola"], "ES": ["adaptógeno", "ashwagandha", "rhodiola"], "IT": ["adattogeno", "ashwagandha", "rhodiola"] } },
+                { "id": "food_beverage_supplements_wellness_nootropics", "name": "Nootropics", "level": 4, "keywords": ["nootropics", "cognitive supplements", "brain supplements", "lion's mane"], "localKeywords": { "DE": ["Nootropika", "Gehirn Supplement", "kognitive Nahrungsergänzung"], "FR": ["nootropiques", "suppléments cognitifs"], "NL": ["noötropica", "cognitieve supplementen"], "ES": ["nootrópicos", "suplementos cognitivos"], "IT": ["nootropici", "integratori cognitivi"] } },
+                { "id": "food_beverage_supplements_wellness_cbd", "name": "CBD & Hemp", "level": 4 }
+              ]
+            }
+          ]
+        }
       ]
     },
-    "Beauty & Personal Care": {
-      "Skincare": [
-        "Moisturisers",
-        "Serums",
-        "SPF",
-        "Eye Care",
-        "Cleansers"
-      ],
-      "Haircare": [
-        "Shampoo",
-        "Conditioner",
-        "Treatments",
-        "Styling"
-      ],
-      "Body Care": [
-        "Body Lotion",
-        "Bath Products",
-        "Deodorant",
-        "Hand Care"
-      ],
-      "Cosmetics": [
-        "Foundation",
-        "Lip Products",
-        "Eye Products",
-        "Blush & Bronzer"
+    {
+      "id": "sports_fitness",
+      "name": "Sports & Fitness",
+      "level": 1,
+      "priority": "high",
+      "subcategories": [
+        {
+          "id": "sports_fitness_apparel",
+          "name": "Apparel",
+          "level": 2,
+          "subcategories": [
+            { "id": "sports_fitness_apparel_activewear", "name": "Activewear", "level": 3 },
+            { "id": "sports_fitness_apparel_compression", "name": "Compression Gear", "level": 3 },
+            { "id": "sports_fitness_apparel_sports_bras", "name": "Sports Bras", "level": 3 }
+          ]
+        },
+        {
+          "id": "sports_fitness_equipment",
+          "name": "Equipment",
+          "level": 2,
+          "subcategories": [
+            { "id": "sports_fitness_equipment_home_gym", "name": "Home Gym", "level": 3 },
+            { "id": "sports_fitness_equipment_resistance", "name": "Resistance Bands & Tubes", "level": 3 },
+            { "id": "sports_fitness_equipment_yoga", "name": "Yoga & Pilates", "level": 3 },
+            { "id": "sports_fitness_equipment_cardio", "name": "Cardio Equipment", "level": 3 }
+          ]
+        },
+        {
+          "id": "sports_fitness_wearables",
+          "name": "Wearables & Tech",
+          "level": 2,
+          "subcategories": [
+            { "id": "sports_fitness_wearables_smartwatches", "name": "Smartwatches", "level": 3 },
+            { "id": "sports_fitness_wearables_fitness_trackers", "name": "Fitness Trackers", "level": 3 },
+            { "id": "sports_fitness_wearables_heart_rate", "name": "Heart Rate Monitors", "level": 3 }
+          ]
+        }
       ]
     },
-    "Toys & Games": {
-      "Educational": [
-        "STEM Toys",
-        "Puzzles",
-        "Art & Craft",
-        "Reading Aids"
-      ],
-      "Active Play": [
-        "Outdoor Toys",
-        "Sports Equipment",
-        "Balance & Coordination"
-      ],
-      "Digital & Interactive": [
-        "Electronic Games",
-        "AR/VR Toys",
-        "Coding Kits"
-      ],
-      "Collectibles": [
-        "Action Figures",
-        "Trading Cards",
-        "Board Games"
+    {
+      "id": "beauty_personal_care",
+      "name": "Beauty & Personal Care",
+      "level": 1,
+      "priority": "high",
+      "subcategories": [
+        {
+          "id": "beauty_personal_care_skincare",
+          "name": "Skincare",
+          "level": 2,
+          "subcategories": [
+            { "id": "beauty_personal_care_skincare_clean", "name": "Clean Beauty", "level": 3 },
+            { "id": "beauty_personal_care_skincare_kbeauty", "name": "K-Beauty", "level": 3 },
+            { "id": "beauty_personal_care_skincare_mens", "name": "Men's Grooming", "level": 3 }
+          ]
+        },
+        {
+          "id": "beauty_personal_care_hair",
+          "name": "Hair Care",
+          "level": 2,
+          "subcategories": [
+            { "id": "beauty_personal_care_hair_clean", "name": "Clean Hair Care", "level": 3 },
+            { "id": "beauty_personal_care_hair_scalp", "name": "Scalp Treatments", "level": 3 }
+          ]
+        }
       ]
     },
-    "Home Goods": {
-      "Kitchen": [
-        "Cookware",
-        "Small Appliances",
-        "Storage",
-        "Utensils & Gadgets"
-      ],
-      "Organisation": [
-        "Storage Solutions",
-        "Closet Systems",
-        "Desk Organisation"
-      ],
-      "Home Decor": [
-        "Lighting",
-        "Textiles",
-        "Wall Art",
-        "Plants & Planters"
-      ],
-      "Cleaning": [
-        "Eco Cleaning",
-        "Laundry",
-        "Surface Care"
+    {
+      "id": "home_living",
+      "name": "Home & Living",
+      "level": 1,
+      "priority": "medium",
+      "subcategories": [
+        {
+          "id": "home_living_kitchen",
+          "name": "Kitchen",
+          "level": 2,
+          "subcategories": [
+            { "id": "home_living_kitchen_sustainable", "name": "Sustainable Kitchen", "level": 3 },
+            { "id": "home_living_kitchen_appliances", "name": "Smart Appliances", "level": 3 }
+          ]
+        }
       ]
     },
-    "Health & Wellness": {
-      "Fitness": [
-        "Home Gym Equipment",
-        "Yoga & Pilates",
-        "Recovery",
-        "Wearables"
-      ],
-      "Sleep": [
-        "Sleep Aids",
-        "Bedding",
-        "Pillows",
-        "Aromatherapy"
-      ],
-      "Mental Wellbeing": [
-        "Meditation",
-        "Journaling",
-        "Stress Relief"
-      ],
-      "Vitamins & Supplements": [
-        "Vitamins",
-        "Minerals",
-        "Herbal",
-        "Sports Nutrition"
+    {
+      "id": "pets",
+      "name": "Pet Products",
+      "level": 1,
+      "priority": "medium",
+      "subcategories": [
+        {
+          "id": "pets_nutrition",
+          "name": "Pet Nutrition",
+          "level": 2,
+          "subcategories": [
+            { "id": "pets_nutrition_premium_food", "name": "Premium Pet Food", "level": 3 },
+            { "id": "pets_nutrition_supplements", "name": "Pet Supplements", "level": 3 }
+          ]
+        },
+        {
+          "id": "pets_accessories",
+          "name": "Pet Accessories",
+          "level": 2,
+          "subcategories": [
+            { "id": "pets_accessories_wearable_tech", "name": "Pet Wearables", "level": 3 }
+          ]
+        }
       ]
     },
-    "Pet": {
-      "Dog": [
-        "Food",
-        "Treats",
-        "Accessories",
-        "Grooming",
-        "Health"
-      ],
-      "Cat": [
-        "Food",
-        "Treats",
-        "Accessories",
-        "Health"
-      ],
-      "Other Pets": [
-        "Small Animals",
-        "Fish",
-        "Birds"
+    {
+      "id": "games_toys",
+      "name": "Games & Toys",
+      "level": 1,
+      "priority": "high",
+      "description": "Board games, card games, toys, and gaming accessories for all ages",
+      "market_trends": {
+        "growth_segments": ["adult_games", "educational", "collectible", "sustainable_toys"],
+        "eu_regulations": ["CE_marking", "EN71_compliance", "REACH_chemicals"]
+      },
+      "subcategories": [
+        {
+          "id": "games_toys_board_games",
+          "name": "Board Games",
+          "level": 2,
+          "description": "Traditional and modern board games for various player counts and complexity levels",
+          "market_size": "€2.8B EU (2025)",
+          "subcategories": [
+            {
+              "id": "games_toys_board_games_strategy",
+              "name": "Strategy Games",
+              "level": 3,
+              "description": "Games emphasizing tactical thinking, resource management, and long-term planning",
+              "keywords": ["strategy", "tactical", "resource management", "engine building", "worker placement"],
+              "subcategories": [
+                {
+                  "id": "games_toys_board_games_strategy_euro",
+                  "name": "Eurogames",
+                  "level": 4,
+                  "description": "German-style board games focusing on strategy with minimal player elimination",
+                  "keywords": ["eurogame", "german style", "settlers of catan", "carcassonne", "ticket to ride"],
+                  "attributes": {
+                    "complexity": ["light", "medium", "heavy"],
+                    "avg_playtime_minutes": [30, 45, 60, 90, 120],
+                    "player_count": { "min": 2, "max": 6 },
+                    "popular_brands": ["Days of Wonder", "Ravensburger", "Z-Man Games"]
+                  }
+                },
+                {
+                  "id": "games_toys_board_games_strategy_ameritrash",
+                  "name": "Ameritrash / Thematic",
+                  "level": 4,
+                  "description": "Theme-heavy American-style games with strong narratives and player interaction",
+                  "keywords": ["thematic", "american style", "miniatures", "dice rolling", "adventure"],
+                  "attributes": {
+                    "complexity": ["medium", "heavy"],
+                    "avg_playtime_minutes": [60, 90, 120, 180],
+                    "player_count": { "min": 2, "max": 6 },
+                    "popular_brands": ["Fantasy Flight", "CMON", "Avalon Hill"]
+                  }
+                },
+                {
+                  "id": "games_toys_board_games_strategy_war",
+                  "name": "War Games",
+                  "level": 4,
+                  "description": "Military strategy simulations with historical or fictional conflicts",
+                  "keywords": ["war game", "military", "conflict", "historical battle", "miniatures war"],
+                  "attributes": {
+                    "complexity": ["heavy", "expert"],
+                    "avg_playtime_minutes": [120, 180, 240, 360],
+                    "player_count": { "min": 2, "max": 4 },
+                    "popular_brands": ["GMT Games", "Multi-Man Publishing", "Avalanche Press"]
+                  }
+                },
+                {
+                  "id": "games_toys_board_games_strategy_cooperative",
+                  "name": "Cooperative Strategy",
+                  "level": 4,
+                  "description": "Players work together against the game system rather than competing",
+                  "keywords": ["cooperative", "co-op", "team game", "pandemic", "forbidden island"],
+                  "attributes": {
+                    "complexity": ["light", "medium", "heavy"],
+                    "avg_playtime_minutes": [45, 60, 90],
+                    "player_count": { "min": 1, "max": 6 },
+                    "popular_brands": ["Z-Man Games", "Fantasy Flight", "Fabled Nexus"]
+                  }
+                }
+              ]
+            },
+            {
+              "id": "games_toys_board_games_family",
+              "name": "Family Games",
+              "level": 3,
+              "description": "Accessible games suitable for all ages, often with simple rules and quick play",
+              "keywords": ["family", "party game", "light", "kids", "adults", "multi-generational"],
+              "subcategories": [
+                {
+                  "id": "games_toys_board_games_family_party",
+                  "name": "Party Games",
+                  "level": 4,
+                  "description": "Social games focused on interaction, humor, and large groups",
+                  "keywords": ["party", "social", "charades", "drawing game", "trivia", "codenames"],
+                  "attributes": {
+                    "player_count": { "min": 3, "max": 12 },
+                    "avg_playtime_minutes": [20, 30, 45],
+                    "popular_brands": ["Hasbro", "Mattel", "Czech Games Edition"]
+                  }
+                },
+                {
+                  "id": "games_toys_board_games_family_classic",
+                  "name": "Classic Family Games",
+                  "level": 4,
+                  "description": "Traditional board games with enduring popularity",
+                  "keywords": ["monopoly", "scrabble", "clue", "checkers", "chess", "backgammon"],
+                  "attributes": {
+                    "player_count": { "min": 2, "max": 6 },
+                    "avg_playtime_minutes": [30, 45, 60, 90],
+                    "popular_brands": ["Hasbro", "Mattel", "Pressman"]
+                  }
+                },
+                {
+                  "id": "games_toys_board_games_family_educational",
+                  "name": "Educational Games",
+                  "level": 4,
+                  "description": "Games designed to teach specific skills or knowledge areas",
+                  "keywords": ["educational", "learning", "STEM", "geography", "math game", "language game"],
+                  "attributes": {
+                    "age_range": { "min": 4, "max": 14 },
+                    "subjects": ["math", "language", "geography", "history", "science"],
+                    "popular_brands": ["Learning Resources", "Educational Insights", "Smart Games"]
+                  }
+                }
+              ]
+            },
+            {
+              "id": "games_toys_board_games_abstract",
+              "name": "Abstract Games",
+              "level": 3,
+              "description": "Games with minimal theme focused on pure strategy and pattern recognition",
+              "keywords": ["abstract", "pattern", "strategy", "perfect information", "chess-like"],
+              "subcategories": [
+                {
+                  "id": "games_toys_board_games_abstract_traditional",
+                  "name": "Traditional Abstract",
+                  "level": 4,
+                  "description": "Ancient and classic abstract strategy games",
+                  "keywords": ["chess", "go", "shogi", "checkers", "othello", "reversi"],
+                  "attributes": {
+                    "player_count": { "min": 2, "max": 2 },
+                    "avg_playtime_minutes": [10, 20, 30, 60],
+                    "origin": ["china", "japan", "india", "europe"]
+                  }
+                },
+                {
+                  "id": "games_toys_board_games_abstract_modern",
+                  "name": "Modern Abstract",
+                  "level": 4,
+                  "description": "Contemporary abstract games with innovative mechanics",
+                  "keywords": ["azul", "santorini", "patchwork", "tak", "hive"],
+                  "attributes": {
+                    "complexity": ["light", "medium"],
+                    "avg_playtime_minutes": [15, 20, 30, 45],
+                    "player_count": { "min": 2, "max": 4 }
+                  }
+                }
+              ]
+            },
+            {
+              "id": "games_toys_board_games_deck_building",
+              "name": "Deck-Building Games",
+              "level": 3,
+              "description": "Games where players construct their decks during gameplay",
+              "keywords": ["deck building", "card drafting", "dominion", "marvel champions"],
+              "subcategories": [
+                {
+                  "id": "games_toys_board_games_deck_building_competitive",
+                  "name": "Competitive Deck Building",
+                  "level": 4,
+                  "description": "Players compete to build the most efficient deck",
+                  "keywords": ["dominion", "ascension", "star realms", "clank"],
+                  "attributes": {
+                    "player_count": { "min": 2, "max": 4 },
+                    "avg_playtime_minutes": [30, 45, 60],
+                    "popular_brands": ["Rio Grande Games", "Stone Blade Entertainment", "Dire Wolf"]
+                  }
+                },
+                {
+                  "id": "games_toys_board_games_deck_building_cooperative",
+                  "name": "Cooperative Deck Building",
+                  "level": 4,
+                  "description": "Players work together against a common enemy",
+                  "keywords": ["legendary", "marvel legendary", "alien legendary"],
+                  "attributes": {
+                    "player_count": { "min": 1, "max": 5 },
+                    "avg_playtime_minutes": [45, 60, 90],
+                    "popular_brands": ["Upper Deck", "Fantasy Flight"]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "games_toys_card_games",
+          "name": "Card Games",
+          "level": 2,
+          "description": "Games played primarily with cards, including trading cards, collectible cards, and traditional card decks",
+          "market_size": "€1.6B EU (2025)",
+          "subcategories": [
+            {
+              "id": "games_toys_card_games_trading_collectible",
+              "name": "Trading & Collectible Card Games (TCG/CCG)",
+              "level": 3,
+              "description": "Games with collectible card distribution and tournament play",
+              "keywords": ["tcg", "ccg", "collectible", "trading cards", "magic the gathering", "pokemon", "yu-gi-oh"],
+              "attributes": {
+                "market_share": {
+                  "magic_the_gathering": 0.35,
+                  "pokemon": 0.30,
+                  "yu_gi_oh": 0.20,
+                  "other": 0.15
+                },
+                "competitive_play": ["local", "regional", "national", "world_championship"],
+                "secondary_market": true
+              },
+              "subcategories": [
+                {
+                  "id": "games_toys_card_games_trading_collectible_mtg",
+                  "name": "Magic: The Gathering",
+                  "level": 4,
+                  "description": "The original trading card game with deep strategy and extensive card pool",
+                  "keywords": ["mtg", "magic the gathering", "wizards of the coast", "planeswalker"],
+                  "attributes": {
+                    "formats": ["standard", "modern", "pioneer", "legacy", "commander", "draft"],
+                    "avg_competitive_deck_cost": { "standard": 250, "modern": 800, "commander": 400 },
+                    "publisher": "Wizards of the Coast"
+                  }
+                },
+                {
+                  "id": "games_toys_card_games_trading_collectible_pokemon",
+                  "name": "Pokémon TCG",
+                  "level": 4,
+                  "description": "Collectible card game based on the Pokémon franchise",
+                  "keywords": ["pokemon", "pokemon cards", "pikachu", "pokemon tcg"],
+                  "attributes": {
+                    "demographics": { "children": 0.5, "teens": 0.3, "adults": 0.2 },
+                    "avg_competitive_deck_cost": 150,
+                    "publisher": "The Pokémon Company"
+                  }
+                },
+                {
+                  "id": "games_toys_card_games_trading_collectible_yugioh",
+                  "name": "Yu-Gi-Oh! TCG",
+                  "level": 4,
+                  "description": "Fast-paced trading card game based on the manga/anime franchise",
+                  "keywords": ["yu-gi-oh", "yugioh", "konami", "duel monsters"],
+                  "attributes": {
+                    "avg_competitive_deck_cost": 300,
+                    "publisher": "Konami",
+                    "anime_integration": "high"
+                  }
+                },
+                {
+                  "id": "games_toys_card_games_trading_collectible_lcg",
+                  "name": "Living Card Games (LCG)",
+                  "level": 4,
+                  "description": "Non-collectible expandable card games with fixed distribution",
+                  "keywords": ["lcg", "living card game", "arkham horror", "marvel champions", "game of thrones"],
+                  "attributes": {
+                    "publisher": "Fantasy Flight Games",
+                    "distribution_model": "non_random",
+                    "avg_monthly_cost": 30
+                  }
+                }
+              ]
+            },
+            {
+              "id": "games_toys_card_games_standard_deck",
+              "name": "Standard Deck Games",
+              "level": 3,
+              "description": "Games played with a standard 52-card playing card deck",
+              "keywords": ["playing cards", "poker", "bridge", "rummy", "hearts", "spades"],
+              "subcategories": [
+                {
+                  "id": "games_toys_card_games_standard_deck_poker",
+                  "name": "Poker",
+                  "level": 4,
+                  "description": "Betting and strategy card games with various variants",
+                  "keywords": ["texas holdem", "omaha", "seven card stud", "poker"],
+                  "attributes": {
+                    "variants": ["texas_holdem", "omaha", "seven_card_stud", "five_card_draw"],
+                    "skill_level": ["beginner", "intermediate", "professional"],
+                    "competitive_circuit": ["wsop", "european_poker_tour"]
+                  }
+                },
+                {
+                  "id": "games_toys_card_games_standard_deck_trick_taking",
+                  "name": "Trick-Taking Games",
+                  "level": 4,
+                  "description": "Games where players compete to win tricks or avoid taking them",
+                  "keywords": ["bridge", "hearts", "spades", "euchre", "whist"],
+                  "attributes": {
+                    "player_count": { "min": 2, "max": 6 },
+                    "popular_variants": ["bridge", "hearts", "spades", "euchre", "pitch"]
+                  }
+                },
+                {
+                  "id": "games_toys_card_games_standard_deck_rummy",
+                  "name": "Rummy Family",
+                  "level": 4,
+                  "description": "Meld-making card games focused on sets and runs",
+                  "keywords": ["rummy", "gin rummy", "canasta", "500 rum"],
+                  "attributes": {
+                    "player_count": { "min": 2, "max": 6 },
+                    "variants": ["gin_rummy", "canasta", "500_rum", "indian_rummy"]
+                  }
+                }
+              ]
+            },
+            {
+              "id": "games_toys_card_games_dedicated_deck",
+              "name": "Dedicated Deck Games",
+              "level": 3,
+              "description": "Games with custom cards not intended for collectible markets",
+              "keywords": ["uno", "exploding kittens", "cards against humanity", "phase 10"],
+              "subcategories": [
+                {
+                  "id": "games_toys_card_games_dedicated_deck_party",
+                  "name": "Party Card Games",
+                  "level": 4,
+                  "description": "Social-focused card games for groups",
+                  "keywords": ["cards against humanity", "what do you meme", "joking hazard"],
+                  "attributes": {
+                    "age_restriction": ["18+"],
+                    "player_count": { "min": 4, "max": 20 },
+                    "avg_playtime_minutes": [30, 45, 60]
+                  }
+                },
+                {
+                  "id": "games_toys_card_games_dedicated_deck_family",
+                  "name": "Family Card Games",
+                  "level": 4,
+                  "description": "Card games suitable for children and families",
+                  "keywords": ["uno", "phase 10", "skip-bo", "fluxx"],
+                  "attributes": {
+                    "age_range": { "min": 5, "max": 99 },
+                    "player_count": { "min": 2, "max": 10 },
+                    "popular_brands": ["Mattel", "Hasbro", "Looney Labs"]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "games_toys_toys",
+          "name": "Toys",
+          "level": 2,
+          "description": "Playthings for children and collectors across various categories",
+          "market_size": "€5.2B EU (2025)",
+          "subcategories": [
+            {
+              "id": "games_toys_toys_action_figures",
+              "name": "Action Figures & Collectibles",
+              "level": 3,
+              "description": "Posable figures from entertainment franchises and original properties",
+              "keywords": ["action figures", "collectibles", "figurines", "statues", "funko pop"],
+              "subcategories": [
+                {
+                  "id": "games_toys_toys_action_figures_movie_tv",
+                  "name": "Movie & TV Action Figures",
+                  "level": 4,
+                  "description": "Figures based on film and television properties",
+                  "keywords": ["marvel", "dc", "star wars", "superheroes", "disney"],
+                  "attributes": {
+                    "franchises": ["marvel", "dc", "star wars", "harry potter", "lord of the rings"],
+                    "scales": ["3.75_inch", "6_inch", "12_inch"],
+                    "brands": ["Hasbro", "Mattel", "McFarlane Toys", "Bandai"]
+                  }
+                },
+                {
+                  "id": "games_toys_toys_action_figures_anime",
+                  "name": "Anime Figures",
+                  "level": 4,
+                  "description": "Japanese-style collectible figures from anime and manga",
+                  "keywords": ["anime figures", "nendoroid", "figma", "bandai", "dragon ball", "one piece"],
+                  "attributes": {
+                    "types": ["scale_figures", "action_figures", "statues", "model_kits"],
+                    "price_range": { "low": 20, "medium": 50, "high": 200, "luxury": 500 },
+                    "brands": ["Good Smile Company", "Bandai", "Kotobukiya", "MegaHouse"]
+                  }
+                },
+                {
+                  "id": "games_toys_toys_action_figures_miniatures",
+                  "name": "Miniatures & Wargaming",
+                  "level": 4,
+                  "description": "Unpainted miniatures for tabletop gaming and painting",
+                  "keywords": ["warhammer", "miniatures", "citadel", "d&d miniatures", "painting"],
+                  "attributes": {
+                    "games": ["warhammer_40k", "warhammer_age_of_sigmar", "dungeons_and_dragons", "star_wars_legion"],
+                    "scales": ["28mm", "32mm", "54mm"],
+                    "brands": ["Games Workshop", "WizKids", "Privateer Press"]
+                  }
+                }
+              ]
+            },
+            {
+              "id": "games_toys_toys_construction",
+              "name": "Construction & Building Toys",
+              "level": 3,
+              "description": "Toys focused on building, assembly, and creative construction",
+              "keywords": ["lego", "building blocks", "magnetic tiles", "construction sets"],
+              "subcategories": [
+                {
+                  "id": "games_toys_toys_construction_lego",
+                  "name": "LEGO & Compatible",
+                  "level": 4,
+                  "description": "Interlocking plastic brick construction systems",
+                  "keywords": ["lego", "duplo", "technic", "lego ideas", "brick building"],
+                  "attributes": {
+                    "themes": ["city", "technic", "star_wars", "marvel", "harry_potter", "ideas"],
+                    "piece_count_ranges": { "small": "0-200", "medium": "201-500", "large": "501-1000", "expert": "1000+" },
+                    "age_ranges": ["duplo_1.5-5", "junior_4-7", "classic_5-12", "technic_9-16", "adult_18+"],
+                    "brand": "The LEGO Group"
+                  }
+                },
+                {
+                  "id": "games_toys_toys_construction_magnetic",
+                  "name": "Magnetic Building Toys",
+                  "level": 4,
+                  "description": "Magnetic tile and rod systems for creative construction",
+                  "keywords": ["magnatiles", "magnetic tiles", "picasso tiles", "magnaformers"],
+                  "attributes": {
+                    "types": ["tiles", "rods_and_balls", "geometric"],
+                    "age_range": { "min": 3, "max": 10 },
+                    "popular_brands": ["Magnatiles", "Picasso Tiles", "Magnaformers"]
+                  }
+                }
+              ]
+            },
+            {
+              "id": "games_toys_toys_educational_steam",
+              "name": "Educational & STEAM Toys",
+              "level": 3,
+              "description": "Toys designed to teach science, technology, engineering, arts, and mathematics",
+              "keywords": ["stem", "steam", "educational toys", "coding toys", "science kits"],
+              "subcategories": [
+                {
+                  "id": "games_toys_toys_educational_steam_coding",
+                  "name": "Coding & Robotics",
+                  "level": 4,
+                  "description": "Programmable toys and robotics kits",
+                  "keywords": ["coding robot", "sphero", "ozobot", "lego mindstorms", "makeblock"],
+                  "attributes": {
+                    "programming_levels": ["pre_reader", "block_based", "text_based"],
+                    "age_ranges": ["5-7", "8-12", "13+"],
+                    "popular_brands": ["Sphero", "LEGO Education", "Makeblock", "Ozobot"]
+                  }
+                },
+                {
+                  "id": "games_toys_toys_educational_steam_science",
+                  "name": "Science Kits",
+                  "level": 4,
+                  "description": "Hands-on science experiment kits",
+                  "keywords": ["chemistry set", "microscope", "rocket kit", "crystal growing"],
+                  "attributes": {
+                    "subjects": ["chemistry", "biology", "physics", "astronomy", "geology"],
+                    "brands": ["Thames & Kosmos", "National Geographic", "Mel Science"]
+                  }
+                }
+              ]
+            },
+            {
+              "id": "games_toys_toys_outdoor",
+              "name": "Outdoor & Active Toys",
+              "level": 3,
+              "description": "Toys for outdoor play and physical activity",
+              "keywords": ["bikes", "scooters", "trampolines", "water toys", "sports equipment"],
+              "subcategories": [
+                {
+                  "id": "games_toys_toys_outdoor_rideons",
+                  "name": "Ride-On Toys",
+                  "level": 4,
+                  "description": "Bikes, scooters, and wheeled toys",
+                  "keywords": ["balance bike", "kick scooter", "tricycle", "go kart"],
+                  "attributes": {
+                    "types": ["balance_bikes", "scooters", "tricycles", "electric_rideons"],
+                    "age_ranges": ["1-3", "3-5", "5-8", "8+"],
+                    "brands": ["Radio Flyer", "Micro", "Razor"]
+                  }
+                },
+                {
+                  "id": "games_toys_toys_outdoor_play",
+                  "name": "Play Structures",
+                  "level": 4,
+                  "description": "Playhouses, swingsets, and climbing structures",
+                  "keywords": ["playhouse", "swing set", "trampoline", "climbing frame"],
+                  "attributes": {
+                    "materials": ["wood", "metal", "plastic"],
+                    "safety_certifications": ["EN71", "ASTM"],
+                    "brands": ["Step2", "Little Tikes", "Lifetime"]
+                  }
+                }
+              ]
+            },
+            {
+              "id": "games_toys_toys_plush",
+              "name": "Plush & Soft Toys",
+              "level": 3,
+              "description": "Stuffed animals and soft fabric toys",
+              "keywords": ["stuffed animal", "teddy bear", "plush toy", "squishmallow"],
+              "subcategories": [
+                {
+                  "id": "games_toys_toys_plush_classic",
+                  "name": "Classic Plush",
+                  "level": 4,
+                  "description": "Traditional stuffed animals and teddy bears",
+                  "keywords": ["teddy bear", "bunny", "puppet", "comfort toy"],
+                  "attributes": {
+                    "brands": ["Steiff", "Gund", "Jellycat", "Build-A-Bear"],
+                    "materials": ["organic_cotton", "polyester", "wool"]
+                  }
+                },
+                {
+                  "id": "games_toys_toys_plush_licensed",
+                  "name": "Licensed Character Plush",
+                  "level": 4,
+                  "description": "Plush toys based on entertainment properties",
+                  "keywords": ["disney plush", "pokemon plush", "sanrio", "squishmallow"],
+                  "attributes": {
+                    "franchises": ["disney", "pokemon", "sanrio", "marvel", "star_wars"],
+                    "collectibility": ["high", "limited_edition"]
+                  }
+                }
+              ]
+            },
+            {
+              "id": "games_toys_toys_collectibles",
+              "name": "Collectible Toys",
+              "level": 3,
+              "description": "Toys designed for collecting with blind packaging or limited editions",
+              "keywords": ["blind box", "surprise toy", "capsule toy", "trading figures"],
+              "subcategories": [
+                {
+                  "id": "games_toys_toys_collectibles_blind_box",
+                  "name": "Blind Box Figures",
+                  "level": 4,
+                  "description": "Mystery packaged collectible figures",
+                  "keywords": ["pop mart", "molly", "sonny angel", "smiski", "blind box"],
+                  "attributes": {
+                    "brands": ["Pop Mart", "Tokidoki", "Kidrobot", "Funko"],
+                    "price_per_unit": { "min": 10, "max": 25, "avg": 15 },
+                    "resale_market": "active"
+                  }
+                },
+                {
+                  "id": "games_toys_toys_collectibles_trading",
+                  "name": "Trading Figure Toys",
+                  "level": 4,
+                  "description": "Small trading figures with collectible series",
+                  "keywords": ["shopkins", "lol surprise", "hatchimals", "cra-z-art"],
+                  "attributes": {
+                    "demographics": { "children_6-12": 0.7, "collectors": 0.3 },
+                    "series_release_frequency": "quarterly",
+                    "brands": ["MGA Entertainment", "Moose Toys", "Spin Master"]
+                  }
+                }
+              ]
+            },
+            {
+              "id": "games_toys_toys_arts_crafts",
+              "name": "Arts & Crafts",
+              "level": 3,
+              "description": "Creative toys for drawing, painting, and crafting",
+              "keywords": ["coloring", "paint", "clay", "sewing kit", "craft kit"],
+              "subcategories": [
+                {
+                  "id": "games_toys_toys_arts_crafts_kids",
+                  "name": "Children's Craft Kits",
+                  "level": 4,
+                  "description": "Age-appropriate craft activities for children",
+                  "keywords": ["perler beads", "friendship bracelets", "slime kit", "paint by number"],
+                  "attributes": {
+                    "age_ranges": ["3-5", "6-8", "9-12"],
+                    "skill_levels": ["beginner", "intermediate"],
+                    "brands": ["Melissa & Doug", "Crayola", "Klutz"]
+                  }
+                },
+                {
+                  "id": "games_toys_toys_arts_crafts_diy",
+                  "name": "DIY & Maker Kits",
+                  "level": 4,
+                  "description": "Advanced craft kits for older children and adults",
+                  "keywords": ["embroidery", "jewelry making", "soap making", "pottery kit"],
+                  "attributes": {
+                    "age_range": { "min": 12, "max": 99 },
+                    "complexity": ["medium", "high"]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "games_toys_accessories",
+          "name": "Gaming & Toy Accessories",
+          "level": 2,
+          "description": "Accessories and supplies for games and toys",
+          "subcategories": [
+            {
+              "id": "games_toys_accessories_protection",
+              "name": "Protection & Storage",
+              "level": 3,
+              "description": "Sleeves, cases, and organizers for games and cards",
+              "keywords": ["card sleeves", "deck box", "playmat", "game organizer", "dice tray"],
+              "attributes": {
+                "brands": ["Ultra Pro", "Dragon Shield", "Gamegenic", "BCW"]
+              }
+            },
+            {
+              "id": "games_toys_accessories_dice",
+              "name": "Dice & Accessories",
+              "level": 3,
+              "description": "Specialty dice, dice bags, and rolling trays",
+              "keywords": ["dice", "d20", "polyhedral dice", "dice bag", "dice tower"],
+              "attributes": {
+                "materials": ["resin", "metal", "stone", "wood", "acrylic"],
+                "popular_games": ["d&d", "warhammer", "tabletop_rpg"]
+              }
+            }
+          ]
+        }
       ]
+    }
+  ],
+  "attributes": {
+    "certifications": [
+      { "id": "cert_organic", "name": "USDA Organic", "confidence_weight": 0.95 },
+      { "id": "cert_non_gmo", "name": "Non-GMO Project", "confidence_weight": 0.9 },
+      { "id": "cert_cruelty_free", "name": "Cruelty-Free", "confidence_weight": 0.85 },
+      { "id": "cert_vegan", "name": "Certified Vegan", "confidence_weight": 0.9 },
+      { "id": "cert_gluten_free", "name": "Gluten-Free", "confidence_weight": 0.85 }
+    ],
+    "dietary": [
+      { "id": "diet_vegan", "name": "Vegan", "confidence_weight": 0.9 },
+      { "id": "diet_vegetarian", "name": "Vegetarian", "confidence_weight": 0.85 },
+      { "id": "diet_keto", "name": "Keto-Friendly", "confidence_weight": 0.8 },
+      { "id": "diet_paleo", "name": "Paleo", "confidence_weight": 0.8 },
+      { "id": "diet_gluten_free", "name": "Gluten-Free", "confidence_weight": 0.85 }
+    ],
+    "sustainability": [
+      { "id": "sustain_recycled", "name": "Recycled Materials", "confidence_weight": 0.8 },
+      { "id": "sustain_compostable", "name": "Compostable Packaging", "confidence_weight": 0.85 },
+      { "id": "sustain_carbon_neutral", "name": "Carbon Neutral", "confidence_weight": 0.75 }
+    ],
+    "games_toys": {
+      "age_ratings": {
+        "standard": ["0-3", "3-5", "5-7", "7-10", "10-12", "12-15", "15-18", "18+"],
+        "eu_regulations": {
+          "CE_marking": "required_for_all_toys",
+          "age_warning": "0-3_warning_for_small_parts",
+          "EN71": "safety_standard"
+        }
+      },
+      "price_tiers": {
+        "mass_market": { "min": 5, "max": 30, "description": "Retail and supermarket toys" },
+        "premium": { "min": 30, "max": 100, "description": "Specialty and hobby games" },
+        "luxury": { "min": 100, "max": 500, "description": "Collector and high-end items" },
+        "investment": { "min": 500, "max": null, "description": "Limited edition and rare collectibles" }
+      },
+      "distribution_channels": {
+        "mass_retail": ["amazon", "carrefour", "mediamarkt", "toys_r_us"],
+        "specialty": ["local_game_stores", "hobby_shops", "comic_shops"],
+        "direct": ["kickstarter", "publisher_websites", "conventions"],
+        "secondary": ["ebay", "cardmarket", "bricklink"]
+      },
+      "seasonality": {
+        "peak_months": ["november", "december"],
+        "secondary_peaks": ["april", "september"],
+        "key_events": ["black_friday", "cyber_monday", "essentials_week", "gencon", "spiel_essen"]
+      }
     }
   }
 }
