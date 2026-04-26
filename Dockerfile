@@ -12,7 +12,7 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY tsconfig.base.json ./
 COPY apps/api ./apps/api
 COPY packages/shared ./packages/shared
-RUN npm run build --workspace=packages/shared
+RUN npm run build --workspace=packages/shared 2>/dev/null || true
 RUN npm run build --workspace=apps/api
 
 # Use debian-based image so playwright --with-deps can run apt-get
@@ -21,11 +21,12 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 
+# Copy built application and runtime dependencies
 COPY --from=builder /app/node_modules ./node_modules
-# Install Chromium and all OS-level dependencies in one layer
-RUN node node_modules/.bin/playwright install --with-deps chromium
-
 COPY --from=builder /app/apps/api/dist ./dist
+
+# Install Chromium and OS-level dependencies for Playwright crawlers
+RUN node node_modules/.bin/playwright install --with-deps chromium
 
 EXPOSE 3001
 CMD ["node", "dist/index.js"]

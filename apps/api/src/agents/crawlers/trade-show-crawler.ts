@@ -462,8 +462,11 @@ export class TradeShowCrawler extends BaseCrawler {
       await page.waitForLoadState('networkidle', { timeout: 15_000 });
       logger.debug({ currentPage }, 'Navigated to next exhibitor page');
       return true;
-    } catch {
-      // No more pages or button not interactable
+    } catch (err) {
+      // Surface the error — click/waitForLoadState failures (timeouts, network errors)
+      // are not normal pagination stops; they indicate a real crawl problem.
+      const msg = err instanceof Error ? err.message : String(err);
+      logger.warn({ currentPage, error: msg }, 'advancePage failed — stopping pagination');
       return false;
     }
   }

@@ -77,12 +77,12 @@ export default async function BrandsPage({ searchParams }: { searchParams: Searc
       ) : (
         <div className="grid grid-cols-3 gap-4">
           {data.brands.map((brand) => (
-            <div key={brand.id} className="bg-white rounded-lg border shadow-sm p-5 flex flex-col gap-3">
+            <Link key={brand.id} href={`/brands/${brand.id}`} className="bg-white rounded-lg border shadow-sm p-5 flex flex-col gap-3 hover:border-navy-300 hover:shadow-md transition-shadow">
               {/* Header */}
               <div className="flex items-start justify-between gap-2">
                 <div>
                   <p className="font-semibold text-navy-900 text-sm">{brand.name}</p>
-                  <p className="text-xs text-gray-400">{brand.country}</p>
+                  <p className="text-xs text-gray-400">{brand.country ?? 'Unknown country'}</p>
                 </div>
                 <Badge variant={brand.euPresence ? 'green' : 'gray'}>
                   {brand.euPresence ? 'EU ✓' : 'No EU'}
@@ -117,7 +117,7 @@ export default async function BrandsPage({ searchParams }: { searchParams: Searc
                   {brand.websiteUrl.replace(/^https?:\/\//, '')}
                 </a>
               )}
-            </div>
+            </Link>
           ))}
         </div>
       )}

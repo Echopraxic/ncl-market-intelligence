@@ -108,7 +108,7 @@ export class TrendDetectionScheduler {
       const existingPairKeys = new Set(existingRows.map(r => `${r.countryCode}|${r.category}`));
 
       // ── 3. Detection (engine writes nothing — skipPersist: true) ───────────
-      const allTrends = await this.engine.detectTrends(undefined, undefined, 90, { skipPersist: true });
+      const allTrends = await this.engine.detectTrends(undefined, undefined, 365, { skipPersist: true });
       const newTrends = allTrends.filter(t => !existingPairKeys.has(`${t.countryCode}|${t.category}`));
 
       if (newTrends.length === 0) {
@@ -172,12 +172,38 @@ export class TrendDetectionScheduler {
         );
 
         // 5b. Immediately publish auto-approved trends within the same transaction
+        const breakthroughAlerts: typeof humanReviewItems.$inferInsert[] = [];
         for (const trend of toPublish) {
           await tx
             .update(trends)
             .set({ status: 'published', publishedAt: new Date(), publicationMethod: 'auto' })
             .where(eq(trends.id, trend.id));
           autoApprovedIds.push(trend.id);
+
+          // C3: Real-time alert for breakthrough-tier trends — high-priority internal flag
+          if (trend.opportunityTier === 'breakthrough') {
+            breakthroughAlerts.push({
+              type: 'trend_validation',
+              priority: 10,
+              data: {
+                trendId: trend.id,
+                category: trend.category,
+                countryCode: trend.countryCode,
+                growthRate: trend.growthRate,
+                confidence: trend.confidence,
+                tier: 'breakthrough',
+                alertType: 'breakthrough_detected',
+                jobRunId,
+              } as any,
+              reviewPrompt: `BREAKTHROUGH ALERT: ${trend.category} × ${trend.countryCode} is growing at ${(trend.growthRate * 100).toFixed(1)}% with ${(trend.confidence * 100).toFixed(0)}% confidence. First-mover window detected — review and approve outreach pipeline.`,
+              status: 'pending',
+            });
+          }
+        }
+
+        if (breakthroughAlerts.length > 0) {
+          await tx.insert(humanReviewItems).values(breakthroughAlerts);
+          console.log(`[TrendScheduler] ${breakthroughAlerts.length} breakthrough alert(s) queued for human review`);
         }
 
         // 5c. Queue manual-review items (batch insert)

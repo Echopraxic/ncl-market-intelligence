@@ -14,6 +14,8 @@ interface TimeSeriesPoint {
   date: Date;
   value: number;
   source: string;
+  countryCode: string;
+  category: string;
   rawData: any;
 }
 
@@ -69,7 +71,7 @@ export interface CompositeTrend {
 }
 
 export class StatisticalTrendDetectionAgent {
-  private readonly MIN_DATA_POINTS = 14;
+  private readonly MIN_DATA_POINTS = 8;
   private readonly CONFIDENCE_THRESHOLD = 0.85;
   // Opportunity tier growth-rate boundaries (annualized YoY)
   private readonly TIER_BREAKTHROUGH  = 0.50;   // >50%  → breakthrough
@@ -137,6 +139,8 @@ export class StatisticalTrendDetectionAgent {
       date: r.capturedAt,
       value: r.signalValue,
       source: r.source,
+      countryCode: r.countryCode,
+      category: r.category,
       rawData: r.rawData
     }));
   }
@@ -145,10 +149,7 @@ export class StatisticalTrendDetectionAgent {
     const grouped = new Map<string, TimeSeriesPoint[]>();
 
     for (const signal of signals) {
-      const category = this.extractCategory(signal);
-      const country = this.extractCountry(signal);
-      const key = `${country}|${category}`;
-
+      const key = `${signal.countryCode}|${signal.category}`;
       if (!grouped.has(key)) grouped.set(key, []);
       grouped.get(key)!.push(signal);
     }
@@ -690,6 +691,8 @@ export class StatisticalTrendDetectionAgent {
             date: new Date(prev.date.getTime() + d * 24 * 60 * 60 * 1000),
             value: prev.value + stepValue * d,
             source: 'interpolated',
+            countryCode: prev.countryCode,
+            category: prev.category,
             rawData: null
           });
         }
@@ -847,14 +850,6 @@ export class StatisticalTrendDetectionAgent {
   private getWeekNumber(date: Date): number {
     const start = new Date(date.getFullYear(), 0, 1);
     return Math.floor((date.getTime() - start.getTime()) / (7 * 24 * 60 * 60 * 1000));
-  }
-
-  private extractCategory(signal: TimeSeriesPoint): string {
-    return signal.rawData?.category || signal.rawData?.product_type || 'unknown';
-  }
-
-  private extractCountry(signal: TimeSeriesPoint): string {
-    return signal.rawData?.country || signal.rawData?.country_code || 'unknown';
   }
 
   async persistTrend(trend: CompositeTrend): Promise<void> {

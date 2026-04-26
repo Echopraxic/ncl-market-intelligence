@@ -40,6 +40,16 @@ export function durationSeconds(
   return `${Math.floor(s / 60)}m ${s % 60}s`;
 }
 
+export function formatDurationMs(ms: number | null | undefined): string {
+  if (ms == null) return '—';
+  if (ms < 1_000) return `${ms}ms`;
+  const s = Math.round(ms / 1_000);
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60);
+  const rem = s % 60;
+  return rem > 0 ? `${m}m ${rem}s` : `${m}m`;
+}
+
 export function countryFlag(code: string): string {
   const flags: Record<string, string> = {
     DE: '🇩🇪', FR: '🇫🇷', NL: '🇳🇱', GB: '🇬🇧', IE: '🇮🇪',

@@ -21,7 +21,7 @@ export const brands = pgTable('brands', {
   annualRevenueEstimate: real('annual_revenue_estimate'),
   employeeCount: integer('employee_count'),
   foundedYear: integer('founded_year'),
-  country: text('country').notNull().default('US'),
+  country: text('country'),
   euPresence: boolean('eu_presence').default(false),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
@@ -47,7 +47,13 @@ export const euMarketSignals = pgTable('eu_market_signals', {
   signalValue: real('signal_value').notNull(),
   rawData: jsonb('raw_data'),
   capturedAt: timestamp('captured_at').notNull().defaultNow(),
-}, (t) => ({ idx: index('eu_signals_country_category_time_idx').on(t.countryCode, t.category, t.capturedAt) }));
+}, (t) => ({
+  idx: index('eu_signals_country_category_time_idx').on(t.countryCode, t.category, t.capturedAt),
+  // Prevents the Google Trends backfill (and any other historical insert path)
+  // from creating duplicate rows on re-run. Targeted by onConflictDoNothing.
+  uniq: uniqueIndex('eu_signals_source_country_category_captured_uniq')
+    .on(t.source, t.countryCode, t.category, t.capturedAt),
+}));
 
 export const tradeShows = pgTable('trade_shows', {
   id: uuid('id').primaryKey().defaultRandom(),

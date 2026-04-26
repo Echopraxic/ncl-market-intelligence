@@ -2,6 +2,8 @@ import { getLeads } from '@/lib/api';
 import type { Lead, LeadStatus } from '@/lib/api';
 import { StatCard } from '@/components/StatCard';
 import { TriggerButton } from '@/components/TriggerButton';
+import { LeadActions } from './LeadActions';
+import Link from 'next/link';
 
 type SearchParams = Promise<{
   status?: string;
@@ -53,6 +55,23 @@ function pitchBadge(angle: string | null) {
   return (
     <span className={`inline-block text-xs px-2 py-0.5 rounded-full font-medium ${colours[angle] ?? 'bg-gray-100 text-gray-600'}`}>
       {labels[angle] ?? angle}
+    </span>
+  );
+}
+
+function tierBadge(tier: string | null) {
+  if (!tier) return null;
+  const colours: Record<string, string> = {
+    breakthrough: 'bg-red-100 text-red-800 font-semibold',
+    accelerating: 'bg-orange-100 text-orange-800',
+    sustained:    'bg-blue-100 text-blue-700',
+    mature:       'bg-gray-100 text-gray-600',
+    disrupted:    'bg-yellow-100 text-yellow-800',
+    watch:        'bg-gray-50 text-gray-400',
+  };
+  return (
+    <span className={`inline-block text-xs px-2 py-0.5 rounded-full ${colours[tier] ?? 'bg-gray-100 text-gray-600'}`}>
+      {tier}
     </span>
   );
 }
@@ -168,39 +187,64 @@ export default async function LeadsPage({ searchParams }: { searchParams: Search
             <thead>
               <tr className="border-b bg-gray-50">
                 <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Company</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Source</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Category</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Market</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Category · Market</th>
                 <th className="text-right px-4 py-3 text-xs font-medium text-gray-500 uppercase">Score</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Tier</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Pitch</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Status</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Contact</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y">
               {leads.map((lead) => (
-                <tr key={lead.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 font-medium">
-                    {lead.websiteUrl ? (
-                      <a href={lead.websiteUrl} target="_blank" rel="noopener noreferrer" className="text-blue-700 hover:underline">
-                        {lead.companyName}
-                      </a>
-                    ) : lead.companyName}
-                    {lead.euPresence && <span className="ml-1.5 text-xs text-gray-400">(EU present)</span>}
+                <tr key={lead.id} className={`hover:bg-gray-50 ${lead.trendTier === 'breakthrough' ? 'bg-red-50/30' : ''}`}>
+                  <td className="px-4 py-3">
+                    <div className="flex items-start gap-1.5">
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          {lead.brandId ? (
+                            <Link href={`/brands/${lead.brandId}`} className="font-medium text-navy-900 hover:underline text-sm">
+                              {lead.companyName}
+                            </Link>
+                          ) : (
+                            <span className="font-medium text-sm text-gray-800">{lead.companyName}</span>
+                          )}
+                          {lead.euPresence && <span className="text-xs text-gray-400">EU</span>}
+                        </div>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <span className="text-xs text-gray-400 capitalize">{lead.discoverySource.replace(/_/g, ' ')}</span>
+                          {lead.email && <span className="text-xs text-gray-500">✉</span>}
+                          {lead.linkedinUrl && <span className="text-xs text-gray-500">in</span>}
+                          {lead.websiteUrl && (
+                            <a href={lead.websiteUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-500 hover:underline">
+                              ↗
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    </div>
                   </td>
-                  <td className="px-4 py-3 text-gray-500 text-xs capitalize">{lead.discoverySource.replace(/_/g, ' ')}</td>
-                  <td className="px-4 py-3 text-gray-600">{lead.bestCategory ? lead.bestCategory.replace(/_/g, ' ') : '—'}</td>
-                  <td className="px-4 py-3 text-gray-600">{lead.bestCountryCode ?? '—'}</td>
+                  <td className="px-4 py-3">
+                    <p className="text-xs text-gray-700">{lead.bestCategory ? lead.bestCategory.replace(/_/g, ' ') : '—'}</p>
+                    <p className="text-xs text-gray-400">{lead.bestCountryCode ?? '—'}</p>
+                  </td>
                   <td className="px-4 py-3 text-right">
                     <span className={`text-xs px-2 py-0.5 rounded font-mono font-semibold ${scoreBg(lead.leadQualityScore)}`}>
                       {lead.leadQualityScore.toFixed(0)}
                     </span>
                   </td>
-                  <td className="px-4 py-3">{pitchBadge(lead.pitchAngle)}</td>
+                  <td className="px-4 py-3">{tierBadge(lead.trendTier)}</td>
+                  <td className="px-4 py-3">
+                    {pitchBadge(lead.pitchAngle)}
+                    {lead.pitchSummary && (
+                      <p className="text-xs text-gray-400 mt-0.5 max-w-48 truncate" title={lead.pitchSummary}>
+                        {lead.pitchSummary}
+                      </p>
+                    )}
+                  </td>
                   <td className="px-4 py-3">{statusBadge(lead.status)}</td>
-                  <td className="px-4 py-3 text-gray-400 text-xs">
-                    {lead.email ? '✉' : ''}{lead.linkedinUrl ? ' 🔗' : ''}
-                    {!lead.email && !lead.linkedinUrl && '—'}
+                  <td className="px-4 py-3">
+                    <LeadActions id={lead.id} status={lead.status} />
                   </td>
                 </tr>
               ))}

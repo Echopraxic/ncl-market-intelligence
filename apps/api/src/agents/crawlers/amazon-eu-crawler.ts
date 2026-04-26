@@ -1,10 +1,10 @@
-import { chromium, type Browser, type Page } from 'playwright';
+import { chromium, type Browser, type BrowserContext, type Page } from 'playwright';
 import * as cheerio from 'cheerio';
 import pLimit from 'p-limit';
 import { db } from '@/db/index.js';
 import { euMarketSignals } from '@/db/schema.js';
 import { logger } from '@/lib/logger.js';
-import { eq, and, gte } from 'drizzle-orm';
+import { eq, and, gte, sql } from 'drizzle-orm';
 import { BaseCrawler, type CrawlResult } from './base-crawler.js';
 import { CrawlErrorCode, StructuredCrawlError, classifyError } from '@/lib/crawler-errors.js';
 
@@ -23,8 +23,8 @@ type PageType = 'bestsellers' | 'new-releases';
 
 type CategoryConfig = {
   categoryName: string;
-  /** Amazon browse node ID (DE locale as canonical; other locales fall back gracefully) */
-  browseNodeId: string;
+  /** URL slug — consistent across all Amazon EU locales (Amazon 301s to locale equivalent) */
+  urlSlug: string;
   categoryPath: string;
   hasNewReleases: boolean;
 };
@@ -63,36 +63,39 @@ type AmazonSelectors = {
 // Configuration
 // ---------------------------------------------------------------------------
 
+// Reduced to 3 highest-priority NCL markets. NL and IE share inventory with DE/FR
+// and adding them multiplies page loads without proportional signal gain.
 const DOMAIN_CONFIGS: DomainConfig[] = [
-  { domain: 'amazon.de',     countryCode: 'DE', currency: 'EUR', baseUrl: 'https://www.amazon.de' },
-  { domain: 'amazon.fr',     countryCode: 'FR', currency: 'EUR', baseUrl: 'https://www.amazon.fr' },
-  { domain: 'amazon.nl',     countryCode: 'NL', currency: 'EUR', baseUrl: 'https://www.amazon.nl' },
-  { domain: 'amazon.ie',     countryCode: 'IE', currency: 'EUR', baseUrl: 'https://www.amazon.ie' },
-  { domain: 'amazon.co.uk',  countryCode: 'GB', currency: 'GBP', baseUrl: 'https://www.amazon.co.uk' },
+  { domain: 'amazon.de',    countryCode: 'DE', currency: 'EUR', baseUrl: 'https://www.amazon.de' },
+  { domain: 'amazon.fr',    countryCode: 'FR', currency: 'EUR', baseUrl: 'https://www.amazon.fr' },
+  { domain: 'amazon.co.uk', countryCode: 'GB', currency: 'GBP', baseUrl: 'https://www.amazon.co.uk' },
 ];
 
-// Categories aligned with NCL's target segments (toys, CPG, wellness, home goods).
-// Browse node IDs are DE locale; Amazon remaps them per locale via the URL.
+// URL slugs are consistent across all Amazon EU locales — Amazon 301-redirects
+// english slugs to the locale-specific category page.
+// categoryName uses NCL taxonomy slugs so signals join cleanly with the trend engine.
 const CATEGORIES: CategoryConfig[] = [
-  { categoryName: 'Toys & Games',           browseNodeId: '12409153031', categoryPath: 'Toys & Games',           hasNewReleases: true },
-  { categoryName: 'Home & Kitchen',          browseNodeId: '310842031',   categoryPath: 'Home & Kitchen',          hasNewReleases: true },
-  { categoryName: 'Beauty',                  browseNodeId: '119614031',   categoryPath: 'Beauty',                  hasNewReleases: true },
-  { categoryName: 'Health & Personal Care',  browseNodeId: '12408854031', categoryPath: 'Health & Personal Care',  hasNewReleases: true },
-  { categoryName: 'Grocery',                 browseNodeId: '340834031',   categoryPath: 'Grocery',                 hasNewReleases: true },
-  { categoryName: 'Baby Products',           browseNodeId: '1981001031',  categoryPath: 'Baby',                    hasNewReleases: true },
-  { categoryName: 'Pet Supplies',            browseNodeId: '340852031',   categoryPath: 'Pet Supplies',            hasNewReleases: true },
-  { categoryName: 'Sports & Outdoors',       browseNodeId: '16435121031', categoryPath: 'Sports & Outdoors',       hasNewReleases: true },
+  { categoryName: 'toys_games',              urlSlug: 'toys-games',           categoryPath: 'Toys & Games',           hasNewReleases: true  },
+  { categoryName: 'cosmetics_personal_care', urlSlug: 'beauty',               categoryPath: 'Beauty',                  hasNewReleases: true  },
+  { categoryName: 'supplements',             urlSlug: 'health-personal-care', categoryPath: 'Health & Personal Care',  hasNewReleases: true  },
+  { categoryName: 'food_beverage',           urlSlug: 'grocery',              categoryPath: 'Grocery',                 hasNewReleases: false },
+  { categoryName: 'home_goods',              urlSlug: 'home-garden',          categoryPath: 'Home & Kitchen',          hasNewReleases: false },
 ];
 
 const SELECTORS: AmazonSelectors = {
-  product:     '[data-asin]:not([data-asin=""])',
-  rank:        '.zg-bdg-text, .a-size-small.a-color-secondary, .celwidget .a-size-small',
-  title:       'h2 a span, .p13n-sc-truncate, [data-cy="title-recipe-title"] span',
-  link:        'h2 a, a.a-link-normal[href*="/dp/"]',
-  reviewCount: 'a[href*="reviews"] span, .a-size-small.a-color-secondary',
-  rating:      '.a-icon-alt, span[aria-label*="stars"]',
-  price:       '.a-price .a-offscreen, .p13n-sc-price, .a-price-whole',
-  badge:       '.a-badge-text, .p13n-best-seller-badge',
+  // Target the bestseller ordered list items directly.
+  // [data-asin] alone is removed — it matches ads, sidebars, and carousels too,
+  // which all have data-asin but no rank badge, causing rank=0 filtering to drop everything.
+  product:     'ol#zg-ordered-list li, li.zg-item-immersion, div.zg-item-immersion, div[class*="zg-item"]',
+  // Rank badge
+  rank:        '.zg-bdg-text, span[class*="zg-bdg"], .zg-bdg-wrapper span',
+  // Title — covers both grid and list layouts across locales
+  title:       '.p13n-sc-line-clamp-2 a span, .p13n-sc-truncate-desktop-type2, h2 a span, .p13n-sc-truncate, [data-cy="title-recipe-title"] span',
+  link:        'h2 a, .p13n-sc-line-clamp-2 a, a.a-link-normal[href*="/dp/"]',
+  reviewCount: 'span[aria-label$=" ratings"], span[aria-label$=" Bewertungen"], span[aria-label$=" évaluations"], a[href*="reviews"] span',
+  rating:      '.a-icon-star-small .a-icon-alt, .a-icon-alt, span[aria-label*="stars"], span[aria-label*="Sterne"]',
+  price:       '.p13n-sc-price, .a-price .a-offscreen, .a-price-whole',
+  badge:       '.a-badge-text, .p13n-best-seller-badge, .a-badge-label',
 };
 
 // ---------------------------------------------------------------------------
@@ -103,8 +106,8 @@ export class AmazonEUCrawler extends BaseCrawler {
   readonly crawlerType = 'amazon-eu';
 
   private browser: Browser | undefined;
-  private readonly maxPagesPerCategory = 2;   // top 50–100 products
-  private readonly domainCooldownMs = 3_000;  // 3 s between same-domain requests
+  private readonly maxPagesPerCategory = 1;   // top 50 products; page 2 rarely survives bot detection
+  private readonly domainCooldownMs = 1_500;  // 1.5 s between same-domain requests
 
   async run(): Promise<CrawlResult> {
     const errors: string[] = [];
@@ -225,7 +228,7 @@ export class AmazonEUCrawler extends BaseCrawler {
     pageType: PageType,
   ): Promise<{ count: number; botBlocked: boolean; newRecordsFound: number; pagesScraped: number }> {
     const log = logger.child({ domain: domainConfig.domain, category: category.categoryName, pageType });
-    const page = await this.createPage();
+    const { page, context } = await this.createPage();
     const allProducts: ParsedProduct[] = [];
     let pagesScraped = 0;
 
@@ -249,15 +252,19 @@ export class AmazonEUCrawler extends BaseCrawler {
           return { count: 0, botBlocked: true, newRecordsFound: 0, pagesScraped };
         }
 
+        // Wait for the bestseller ordered list specifically — not the broad product
+        // selector, which would match [data-asin] ads in the initial HTML immediately.
         const { html } = await this.captureRenderedDOM(page, {
-          waitSelector: SELECTORS.product,
-          postLoadDelayMs: 800,
+          waitSelector: 'ol#zg-ordered-list, ol.zg-ordered-list, li.zg-item-immersion',
+          postLoadDelayMs: 2000,
         });
 
         const products = this.parseProducts(html, domainConfig, pageType);
         const $ = cheerio.load(html);
         const confidence = this.measureSelectorConfidence($, [
-          { name: 'product', selector: SELECTORS.product, expectedMin: 20 },
+          // Use the ordered list selector for confidence — the broad [data-asin] fallback
+          // in SELECTORS.product would always report high confidence even on non-product pages.
+          { name: 'product', selector: 'ol#zg-ordered-list li, li.zg-item-immersion', expectedMin: 20 },
         ]);
 
         if (confidence.product.confidence < 0.5) {
@@ -291,6 +298,7 @@ export class AmazonEUCrawler extends BaseCrawler {
       throw err;
     } finally {
       await page.close();
+      await context.close();  // fix: context was previously never closed → zombie contexts accumulated
     }
 
     const { inserted, newRecords } = await this.insertCategorySignal(domainConfig, category, pageType, allProducts);
@@ -316,7 +324,7 @@ export class AmazonEUCrawler extends BaseCrawler {
   // Browser / page setup
   // -------------------------------------------------------------------------
 
-  private async createPage(): Promise<Page> {
+  private async createPage(): Promise<{ page: Page; context: BrowserContext }> {
     if (!this.browser) throw new Error('Browser not initialized');
 
     const context = await this.browser.newContext({
@@ -337,8 +345,7 @@ export class AmazonEUCrawler extends BaseCrawler {
       }
     });
 
-    // Anti-detection: hide automation indicators.
-    // The callback runs inside the browser context (not Node), so window/navigator are valid there.
+    // Anti-detection: hide automation indicators (runs in browser context, not Node)
     await page.addInitScript(`
       Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
       Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] });
@@ -347,7 +354,7 @@ export class AmazonEUCrawler extends BaseCrawler {
       delete window.cdc_adoQpoasnfa76pfcZLmcfl_Promise;
     `);
 
-    return page;
+    return { page, context };
   }
 
   private buildUrl(
@@ -356,12 +363,12 @@ export class AmazonEUCrawler extends BaseCrawler {
     pageType: PageType,
     pageNum: number,
   ): string {
+    // Use URL slug (not browse node ID) — slugs are cross-locale; Amazon 301-redirects to
+    // the locale-specific category. No ajax=1: that parameter triggers a partial XHR
+    // response format incompatible with the standard product grid Cheerio parses.
     const basePath = pageType === 'bestsellers' ? 'gp/bestsellers' : 'gp/new-releases';
-    let url = `${domainConfig.baseUrl}/${basePath}/${category.browseNodeId}`;
-    url += pageNum > 1
-      ? `?_encoding=UTF8&pg=${pageNum}&ajax=1`
-      : '?_encoding=UTF8&ajax=1';
-    return url;
+    const base = `${domainConfig.baseUrl}/${basePath}/${category.urlSlug}`;
+    return pageNum > 1 ? `${base}?ie=UTF8&pg=${pageNum}` : base;
   }
 
   // -------------------------------------------------------------------------
@@ -375,18 +382,24 @@ export class AmazonEUCrawler extends BaseCrawler {
   ): ParsedProduct[] {
     const $ = cheerio.load(html);
     const results: ParsedProduct[] = [];
+    const seenAsins = new Set<string>();
 
-    $(SELECTORS.product).each((_, el) => {
+    $(SELECTORS.product).each((itemIndex, el) => {
       const $el = $(el);
-      const asin = $el.attr('data-asin');
-      if (!asin) return;
-
-      const rankText = $el.find(SELECTORS.rank).first().text().trim();
-      const rankMatch = rankText.match(/#?(\d+)/);
-      const rank = rankMatch ? parseInt(rankMatch[1], 10) : 0;
+      // ASIN may be on the li itself or on a child container
+      const asin = $el.attr('data-asin') ?? $el.find('[data-asin]').first().attr('data-asin');
+      if (!asin || seenAsins.has(asin)) return;
+      seenAsins.add(asin);
 
       const title = $el.find(SELECTORS.title).first().text().trim();
-      if (!title || rank === 0) return;
+      if (!title) return;
+
+      // Rank: try the badge text first; fall back to DOM position (1-indexed).
+      // The rank badge frequently fails to render in headless mode — position is a
+      // reliable proxy since ol#zg-ordered-list is a true ordered list.
+      const rankText = $el.find(SELECTORS.rank).first().text().trim();
+      const rankMatch = rankText.match(/#?(\d+)/);
+      const rank = rankMatch ? parseInt(rankMatch[1], 10) : (itemIndex + 1);
 
       const relativeLink = $el.find(SELECTORS.link).first().attr('href') ?? '';
       const url = relativeLink.startsWith('http')
@@ -455,7 +468,7 @@ export class AmazonEUCrawler extends BaseCrawler {
   ): Promise<{ inserted: number; newRecords: number }> {
     if (products.length === 0) return { inserted: 0, newRecords: 0 };
 
-    const signalCategory = `${category.categoryName} (${pageType})`;
+    const signalCategory = category.categoryName;  // NCL taxonomy slug
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
 
@@ -468,6 +481,7 @@ export class AmazonEUCrawler extends BaseCrawler {
           eq(euMarketSignals.countryCode, domainConfig.countryCode),
           eq(euMarketSignals.category, signalCategory),
           gte(euMarketSignals.capturedAt, todayStart),
+          sql`${euMarketSignals.rawData}->>'pageType' = ${pageType}`,
         ),
       )
       .limit(1);

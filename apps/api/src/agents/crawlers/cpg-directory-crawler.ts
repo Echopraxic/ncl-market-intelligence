@@ -1,6 +1,8 @@
 import { chromium, type Browser } from 'playwright';
 import * as cheerio from 'cheerio';
 import { logger } from '@/lib/logger.js';
+import { db } from '@/db/index.js';
+import { agentOutputs } from '@/db/schema.js';
 import { BaseLeadCrawler, type LeadCandidate } from './base-lead-crawler.js';
 import { CrawlErrorCode, classifyError, type StructuredCrawlError } from '@/lib/crawler-errors.js';
 import type { CrawlResult } from './base-crawler.js';
@@ -10,13 +12,13 @@ const MAX_PAGES_PER_DIRECTORY = 10;
 const DIRECTORIES = [
   {
     name: 'cpgd',
-    baseUrl: 'https://cpgd.com/brands',
+    baseUrl: 'https://cpgd.xyz',
     paginationParam: 'page',
     selectors: {
-      card: '.brand-card, [class*="brand"], article',
-      name: 'h2, h3, .brand-name, [class*="name"]',
-      website: 'a[href^="http"]:not([href*="cpgd.com"])',
-      category: '.category, [class*="tag"], [class*="category"]',
+      card: '.brand-card, [class*="brand-card"], [class*="BrandCard"], article, .card',
+      name: 'h2, h3, .brand-name, [class*="name"], [class*="title"]',
+      website: 'a[href^="http"]:not([href*="cpgd.xyz"])',
+      category: '.category, [class*="tag"], [class*="category"], [class*="type"]',
     },
   },
   {
@@ -146,6 +148,14 @@ export class CPGDirectoryCrawler extends BaseLeadCrawler {
       }
     } finally {
       await browser?.close();
+    }
+
+    if (candidates.length > 0) {
+      await db.insert(agentOutputs).values({
+        agentType: this.crawlerType,
+        outputData: candidates as unknown,
+      });
+      logger.info({ count: candidates.length }, '[CPGDirectoryCrawler] Candidates persisted to agent_outputs');
     }
 
     return {

@@ -47,6 +47,18 @@ export default defineConfig({
       API_SECRET_KEY: rootEnv.API_SECRET_KEY ?? 'change-me-in-production',
       NODE_ENV: 'test',
     },
+    coverage: {
+      provider: 'v8',
+      include: ['src/agents/**'],
+      exclude: ['src/agents/**/*.test.ts'],
+      thresholds: {
+        // Crawlers (Playwright/fetch-heavy) can't be unit-tested and are large
+        // files — they drag lines/statements to ~6% across all agents.
+        // Enforce gates only on functions and branches: the logic that IS testable.
+        functions: 40,
+        branches: 40,
+      },
+    },
   },
   resolve: {
     alias: [

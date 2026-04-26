@@ -37,7 +37,7 @@ export class LeadDiscoveryAgent {
       .from(agentOutputs)
       .where(
         and(
-          inArray(agentOutputs.agentType, ['product-hunt', 'linkedin', 'cpg-directory']),
+          inArray(agentOutputs.agentType, ['product-hunt', 'linkedin', 'cpg-directory', 'faire', 'thingtesting', 'bulletin']),
           gte(agentOutputs.createdAt, sevenDaysAgo),
         ),
       );
@@ -89,7 +89,7 @@ export class LeadDiscoveryAgent {
         continue;
       }
 
-      await db.insert(leads).values({
+      const inserted = await db.insert(leads).values({
         companyName: brand.name,
         websiteUrl: brand.websiteUrl ?? undefined,
         leadType: 'brand_scored',
@@ -100,10 +100,14 @@ export class LeadDiscoveryAgent {
         employeeCount: brand.employeeCount ?? undefined,
         euPresence: brand.euPresence ?? false,
         opportunityScore: brand.compositeScore,
-      }).onConflictDoNothing();
+      }).onConflictDoNothing().returning({ id: leads.id });
 
-      leadsCreated++;
-      leadTypes['brand_scored'] = (leadTypes['brand_scored'] ?? 0) + 1;
+      if (inserted.length > 0) {
+        leadsCreated++;
+        leadTypes['brand_scored'] = (leadTypes['brand_scored'] ?? 0) + 1;
+      } else {
+        leadsSkipped++;
+      }
     }
 
     // Source 3: Trade show exhibitors not yet in leads
@@ -140,17 +144,21 @@ export class LeadDiscoveryAgent {
             .limit(1)
         : [];
 
-      await db.insert(leads).values({
+      const insertedExhibitor = await db.insert(leads).values({
         companyName: exhibitor.brandName,
         websiteUrl: exhibitor.brandWebsite,
         leadType: 'exhibitor',
         discoverySource: 'trade_show',
         brandId: matchedBrand[0]?.id ?? null,
         categories: exhibitor.categories ?? [],
-      }).onConflictDoNothing();
+      }).onConflictDoNothing().returning({ id: leads.id });
 
-      leadsCreated++;
-      leadTypes['exhibitor'] = (leadTypes['exhibitor'] ?? 0) + 1;
+      if (insertedExhibitor.length > 0) {
+        leadsCreated++;
+        leadTypes['exhibitor'] = (leadTypes['exhibitor'] ?? 0) + 1;
+      } else {
+        leadsSkipped++;
+      }
     }
 
     logger.info({ leadsCreated, leadsSkipped, leadTypes }, 'LeadDiscoveryAgent completed');
@@ -199,7 +207,7 @@ export class LeadDiscoveryAgent {
 
     const brand = matchedBrand[0];
 
-    await db.insert(leads).values({
+    const inserted = await db.insert(leads).values({
       companyName: candidate.companyName,
       websiteUrl: normalizedUrl,
       email: candidate.email,
@@ -212,8 +220,8 @@ export class LeadDiscoveryAgent {
       employeeCount: brand?.employeeCount ?? candidate.employeeCount,
       euPresence: brand?.euPresence ?? candidate.euPresence ?? false,
       employeeGrowthSignal: candidate.employeeGrowthSignal,
-    }).onConflictDoNothing();
+    }).onConflictDoNothing().returning({ id: leads.id });
 
-    return { created: true };
+    return { created: inserted.length > 0 };
   }
 }

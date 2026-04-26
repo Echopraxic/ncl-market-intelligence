@@ -13,6 +13,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { buildServer } from '../api/server.js';
 import { db } from '../db/index.js';
 import { sql } from 'drizzle-orm';
+import { Webhook } from 'svix';
 
 // ---------------------------------------------------------------------------
 // Shared fixtures
@@ -446,5 +447,109 @@ describe('POST /api/crawlers/:type/trigger', () => {
       url: '/api/crawlers/shopify-brand/trigger',
     });
     expect(res.statusCode).toBe(401);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// D5 — POST /api/webhooks/resend — svix signature verification
+//
+// When RESEND_WEBHOOK_SECRET is set, the server must:
+//   • Accept requests with a valid svix HMAC signature  → 200
+//   • Reject requests with an invalid signature          → 401 INVALID_SIGNATURE
+//   • Reject requests with missing svix headers          → 401 MISSING_SIGNATURE
+//
+// When the secret is not set the server accepts all requests (dev mode).
+// ---------------------------------------------------------------------------
+
+const WEBHOOK_SECRET = 'whsec_' + Buffer.from('test-webhook-secret-d5').toString('base64');
+const WEBHOOK_PAYLOAD = JSON.stringify({ type: 'email.opened', data: { message_id: 'msg_test_d5' } });
+
+function signWebhookPayload(msgId: string, ts: Date, payload: string): string {
+  const wh = new Webhook(WEBHOOK_SECRET);
+  return wh.sign(msgId, ts, payload);
+}
+
+describe('D5 — POST /api/webhooks/resend — signature verification', () => {
+  const originalSecret = process.env.RESEND_WEBHOOK_SECRET;
+
+  beforeAll(() => {
+    // Enable signature verification for this suite
+    process.env.RESEND_WEBHOOK_SECRET = WEBHOOK_SECRET;
+  });
+
+  afterAll(() => {
+    // Restore original value (undefined in most test environments)
+    if (originalSecret === undefined) {
+      delete process.env.RESEND_WEBHOOK_SECRET;
+    } else {
+      process.env.RESEND_WEBHOOK_SECRET = originalSecret;
+    }
+  });
+
+  it('returns 200 when the svix HMAC signature is valid', async () => {
+    const msgId = 'msg_valid_d5';
+    const ts = new Date();
+    const sig = signWebhookPayload(msgId, ts, WEBHOOK_PAYLOAD);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/webhooks/resend',
+      headers: {
+        'content-type': 'application/json',
+        'svix-id': msgId,
+        'svix-timestamp': String(Math.floor(ts.getTime() / 1000)),
+        'svix-signature': sig,
+      },
+      payload: WEBHOOK_PAYLOAD,
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.json().received).toBe(true);
+  });
+
+  it('returns 401 INVALID_SIGNATURE when the signature is wrong', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/webhooks/resend',
+      headers: {
+        'content-type': 'application/json',
+        'svix-id': 'msg_bad_d5',
+        'svix-timestamp': String(Math.floor(Date.now() / 1000)),
+        'svix-signature': 'v1,dGhpcyBpcyBub3QgYSB2YWxpZCBzaWduYXR1cmU=', // bogus
+      },
+      payload: WEBHOOK_PAYLOAD,
+    });
+
+    expect(res.statusCode).toBe(401);
+    expect(res.json().code).toBe('INVALID_SIGNATURE');
+  });
+
+  it('returns 401 MISSING_SIGNATURE when svix headers are absent', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/webhooks/resend',
+      headers: { 'content-type': 'application/json' },
+      payload: WEBHOOK_PAYLOAD,
+    });
+
+    expect(res.statusCode).toBe(401);
+    expect(res.json().code).toBe('MISSING_SIGNATURE');
+  });
+
+  it('returns 200 without signature verification when secret is not configured', async () => {
+    // Temporarily remove the secret
+    delete process.env.RESEND_WEBHOOK_SECRET;
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/webhooks/resend',
+      headers: { 'content-type': 'application/json' },
+      payload: WEBHOOK_PAYLOAD,
+    });
+
+    expect(res.statusCode).toBe(200);
+
+    // Restore for subsequent tests
+    process.env.RESEND_WEBHOOK_SECRET = WEBHOOK_SECRET;
   });
 });

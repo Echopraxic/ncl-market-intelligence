@@ -38,7 +38,8 @@ export type Brand = {
   websiteUrl: string | null;
   shopifyStoreUrl: string | null;
   categories: string[] | null;
-  country: string;
+  /** Null for brands discovered via search where country could not be detected. */
+  country: string | null;
   euPresence: boolean | null;
   annualRevenueEstimate: number | null;
   employeeCount: number | null;
@@ -57,6 +58,15 @@ export type Signal = {
   capturedAt: string;
 };
 
+export type StructuredCrawlError = {
+  code: string;
+  domain?: string;
+  category?: string;
+  message: string;
+  retryable: boolean;
+  timestamp: string;
+};
+
 export type CrawlJob = {
   id: string;
   crawlerType: string;
@@ -65,6 +75,10 @@ export type CrawlJob = {
   completedAt: string | null;
   recordsFound: number | null;
   errorLog: string | null;
+  pagesCrawled: number | null;
+  durationMs: number | null;
+  lastFreshAt: string | null;
+  errorDetails: StructuredCrawlError[] | null;
 };
 
 export type TradeShow = {
@@ -485,4 +499,36 @@ export async function getCampaigns(params?: {
 
 export async function getLeadPipeline(): Promise<PipelineSummary> {
   return apiFetch('/api/lead-pipeline', undefined, 0);
+}
+
+// ---------------------------------------------------------------------------
+// Brand detail types
+// ---------------------------------------------------------------------------
+
+export type BrandDetail = {
+  brand: Brand;
+  scores: Array<{
+    id: string;
+    category: string;
+    countryCode: string;
+    compositeScore: number;
+    categoryOpportunityScore: number;
+    brandFitScore: number;
+    niSuitabilityPreScore: number;
+    generatedAt: string;
+  }>;
+  lead: Lead | null;
+  recentSignals: Array<{
+    id: string;
+    source: string;
+    countryCode: string;
+    category: string;
+    signalType: string;
+    signalValue: number;
+    capturedAt: string;
+  }>;
+};
+
+export async function getBrand(id: string): Promise<BrandDetail> {
+  return apiFetch(`/api/brands/${id}`, undefined, 30);
 }

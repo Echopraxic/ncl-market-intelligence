@@ -78,7 +78,8 @@
       "Bash(npm info:*)",
       "Bash(node --input-type=module:*)",
       "Bash(node --env-file=.env check_cols.mjs)",
-      "Bash(npx tsx *)"
+      "Bash(npx tsx *)",
+      "Bash(chmod +x /c/Users/mikey/ncl-market-intelligence/scripts/setup-local.sh)"
     ]
   }
 }

@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { logger } from '../lib/logger.js';
 import { db } from '../db/index.js';
 import { brands, crawlJobs, euMarketSignals, tradeShows, tradeShowExhibitors, tradeShowPlaybooks, trends, gapScores, retailerInsights, tradeFlowIntelligence, tradeFlowAnalytics, niRoutingSignals, opportunityCorrelations, opportunityScores, humanReviewItems, insights, leads, leadCampaigns, leadPipeline } from '../db/schema.js';
-import { desc, asc, eq, and, gte, lte, isNull, isNotNull, sql, type SQL } from 'drizzle-orm';
+import { desc, asc, eq, and, gte, lte, isNull, isNotNull, sql, inArray, type SQL } from 'drizzle-orm';
 import type { CrawlerScheduler } from '../agents/crawlers/scheduler.js';
 
 // ---------------------------------------------------------------------------
@@ -92,6 +92,12 @@ const HumanReviewPatchSchema = z.object({
   notes:      z.string().optional(),
 });
 
+const LeadPatchSchema = z.object({
+  status:     z.enum(['new', 'reviewed', 'approved', 'contacted', 'replied', 'qualified', 'won', 'lost', 'invalid']),
+  assignedTo: z.string().optional(),
+  notes:      z.string().optional(),
+});
+
 const OpportunityScoresQuerySchema = z.object({
   countryCode:   z.string().length(2).toUpperCase().optional(),
   category:      z.string().min(1).optional(),
@@ -126,6 +132,24 @@ export type ServerOptions = {
 
 export async function buildServer({ scheduler }: ServerOptions = {}) {
   const app = Fastify({ logger: false });
+
+  // -------------------------------------------------------------------------
+  // Raw-body capture for webhook signature verification.
+  //
+  // svix verifies HMAC over the exact request bytes; once Fastify's default
+  // JSON parser runs, JSON.stringify(body) does not always reproduce them.
+  // We register a JSON parser that stashes the raw string on the request and
+  // still parses to an object for the route handler.
+  // -------------------------------------------------------------------------
+
+  app.addContentTypeParser('application/json', { parseAs: 'string' }, (req, body, done) => {
+    (req as { rawBody?: string }).rawBody = body as string;
+    try {
+      done(null, body ? JSON.parse(body as string) : {});
+    } catch (err) {
+      done(err as Error, undefined);
+    }
+  });
 
   // -------------------------------------------------------------------------
   // CORS
@@ -164,7 +188,9 @@ export async function buildServer({ scheduler }: ServerOptions = {}) {
   // -------------------------------------------------------------------------
 
   app.addHook('onRequest', async (request, reply) => {
+    // Exempt: health check and external webhooks (carry their own svix HMAC auth)
     if (request.url === '/health') return;
+    if (request.url.startsWith('/api/webhooks/')) return;
 
     const apiKey = request.headers['x-api-key'];
     if (!apiKey || apiKey !== process.env.API_SECRET_KEY) {
@@ -200,11 +226,26 @@ export async function buildServer({ scheduler }: ServerOptions = {}) {
   // Health check — unauthenticated, used by Railway / load balancers
   // -------------------------------------------------------------------------
 
-  app.get('/health', async () => ({
-    status: 'ok',
-    timestamp: new Date().toISOString(),
-    service: 'ncl-mie-api',
-  }));
+  app.get('/health', async (_request, reply) => {
+    // Verify DB connectivity on every health check so Railway / load balancers
+    // can detect a broken database connection and restart the container.
+    try {
+      await db.execute(sql`SELECT 1`);
+    } catch {
+      return reply.code(503).send({
+        status: 'degraded',
+        db: 'unreachable',
+        timestamp: new Date().toISOString(),
+        service: 'ncl-mie-api',
+      });
+    }
+    return {
+      status: 'ok',
+      db: 'connected',
+      timestamp: new Date().toISOString(),
+      service: 'ncl-mie-api',
+    };
+  });
 
   // -------------------------------------------------------------------------
   // Crawlers — list registered types + recent job history
@@ -212,10 +253,22 @@ export async function buildServer({ scheduler }: ServerOptions = {}) {
 
   app.get('/api/crawlers', async (_request, reply) => {
     const jobs = await db
-      .select()
+      .select({
+        id: crawlJobs.id,
+        crawlerType: crawlJobs.crawlerType,
+        status: crawlJobs.status,
+        startedAt: crawlJobs.startedAt,
+        completedAt: crawlJobs.completedAt,
+        recordsFound: crawlJobs.recordsFound,
+        errorLog: crawlJobs.errorLog,
+        pagesCrawled: crawlJobs.pagesCrawled,
+        durationMs: crawlJobs.durationMs,
+        lastFreshAt: crawlJobs.lastFreshAt,
+        errorDetails: crawlJobs.errorDetails,
+      })
       .from(crawlJobs)
       .orderBy(desc(crawlJobs.startedAt))
-      .limit(10);
+      .limit(20);
 
     return reply.send({
       registered: scheduler?.registeredCrawlers() ?? [],
@@ -275,7 +328,19 @@ export async function buildServer({ scheduler }: ServerOptions = {}) {
     const { crawlerType, limit } = parsed.data;
 
     const rows = await db
-      .select()
+      .select({
+        id: crawlJobs.id,
+        crawlerType: crawlJobs.crawlerType,
+        status: crawlJobs.status,
+        startedAt: crawlJobs.startedAt,
+        completedAt: crawlJobs.completedAt,
+        recordsFound: crawlJobs.recordsFound,
+        errorLog: crawlJobs.errorLog,
+        pagesCrawled: crawlJobs.pagesCrawled,
+        durationMs: crawlJobs.durationMs,
+        lastFreshAt: crawlJobs.lastFreshAt,
+        errorDetails: crawlJobs.errorDetails,
+      })
       .from(crawlJobs)
       .where(crawlerType ? eq(crawlJobs.crawlerType, crawlerType) : undefined)
       .orderBy(desc(crawlJobs.startedAt))
@@ -309,6 +374,66 @@ export async function buildServer({ scheduler }: ServerOptions = {}) {
       .offset(offset);
 
     return reply.send({ brands: rows, limit, offset });
+  });
+
+  // -------------------------------------------------------------------------
+  // Brands — detail view with scores, lead, and recent signals
+  // -------------------------------------------------------------------------
+
+  app.get<{ Params: { id: string } }>('/api/brands/:id', async (request, reply) => {
+    const { id } = request.params;
+
+    const brandRow = await db
+      .select()
+      .from(brands)
+      .where(eq(brands.id, id))
+      .limit(1);
+
+    if (brandRow.length === 0) {
+      return reply.code(404).send({ error: 'Brand not found', code: 'NOT_FOUND' });
+    }
+
+    const brand = brandRow[0];
+    const brandCategories = brand.categories ?? [];
+
+    const [scores, leadRow, recentSignals] = await Promise.all([
+      db
+        .select()
+        .from(opportunityScores)
+        .where(eq(opportunityScores.brandId, id))
+        .orderBy(desc(opportunityScores.compositeScore))
+        .limit(20),
+
+      db
+        .select()
+        .from(leads)
+        .where(eq(leads.brandId, id))
+        .limit(1),
+
+      brandCategories.length > 0
+        ? db
+            .select({
+              id: euMarketSignals.id,
+              source: euMarketSignals.source,
+              countryCode: euMarketSignals.countryCode,
+              category: euMarketSignals.category,
+              signalType: euMarketSignals.signalType,
+              signalValue: euMarketSignals.signalValue,
+              capturedAt: euMarketSignals.capturedAt,
+            })
+            .from(euMarketSignals)
+            .where(inArray(euMarketSignals.category, brandCategories))
+            .orderBy(desc(euMarketSignals.capturedAt))
+            .limit(30)
+        : Promise.resolve([]),
+    ]);
+
+    return reply.send({
+      brand,
+      scores,
+      lead: leadRow[0] ?? null,
+      recentSignals,
+    });
   });
 
   // -------------------------------------------------------------------------
@@ -841,7 +966,59 @@ export async function buildServer({ scheduler }: ServerOptions = {}) {
       })
       .where(eq(humanReviewItems.id, id));
 
+    // When a lead_outreach item is approved, advance the lead to 'contacted'
+    if (existing[0].type === 'lead_outreach' && status === 'approved') {
+      const itemData = existing[0].data as Record<string, unknown>;
+      const leadId = itemData.leadId as string | undefined;
+      if (leadId) {
+        await db
+          .update(leads)
+          .set({ status: 'contacted', updatedAt: new Date() })
+          .where(eq(leads.id, leadId));
+        logger.info({ leadId, reviewItemId: id }, 'Lead advanced to contacted on outreach approval');
+      }
+    }
+
     return reply.send({ id, status, reviewedAt: new Date().toISOString() });
+  });
+
+  // ── PATCH /api/leads/:id ──────────────────────────────────────────────────
+  // Update lead status (approve/reject from leads dashboard).
+
+  app.patch<{ Params: { id: string } }>('/api/leads/:id', async (request, reply) => {
+    const parsed = LeadPatchSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.code(400).send({
+        error: 'Invalid request body',
+        code: 'VALIDATION_ERROR',
+        details: parsed.error.flatten().fieldErrors,
+      });
+    }
+
+    const { id } = request.params;
+    const { status, assignedTo, notes } = parsed.data;
+
+    const existing = await db
+      .select({ id: leads.id })
+      .from(leads)
+      .where(eq(leads.id, id))
+      .limit(1);
+
+    if (existing.length === 0) {
+      return reply.code(404).send({ error: 'Lead not found', code: 'NOT_FOUND' });
+    }
+
+    await db
+      .update(leads)
+      .set({
+        status,
+        ...(assignedTo !== undefined ? { assignedTo } : {}),
+        ...(notes !== undefined      ? { notes }      : {}),
+        updatedAt: new Date(),
+      })
+      .where(eq(leads.id, id));
+
+    return reply.send({ id, status });
   });
 
   // ── GET /api/opportunity-scores ───────────────────────────────────────────
@@ -1291,17 +1468,45 @@ export async function buildServer({ scheduler }: ServerOptions = {}) {
   });
 
   // ── POST /api/webhooks/resend ─────────────────────────────────────────────
-  // Resend webhook receiver. Always returns 200 to prevent retries.
-  // Validates svix-signature header against RESEND_WEBHOOK_SECRET.
+  // Resend webhook receiver. Always returns 200 on success to prevent retries.
+  // Verifies the svix HMAC signature against RESEND_WEBHOOK_SECRET; rejects
+  // with 401 on signature mismatch so engagement events cannot be forged.
+  // When RESEND_WEBHOOK_SECRET is not configured (local dev), signature checks
+  // are bypassed but a warning is logged on every call.
 
   app.post('/api/webhooks/resend', async (request, reply) => {
     const secret = process.env.RESEND_WEBHOOK_SECRET;
+    const rawBody = (request as { rawBody?: string }).rawBody;
+
     if (secret) {
-      const signature = request.headers['svix-signature'];
-      if (!signature) {
-        logger.warn('Resend webhook missing svix-signature header');
-        return reply.code(200).send({ received: true });
+      if (!rawBody) {
+        logger.warn('Resend webhook missing raw body — cannot verify signature');
+        return reply.code(400).send({ error: 'No body', code: 'NO_BODY' });
       }
+
+      const svixId        = request.headers['svix-id'];
+      const svixTimestamp = request.headers['svix-timestamp'];
+      const svixSignature = request.headers['svix-signature'];
+
+      if (typeof svixId !== 'string' || typeof svixTimestamp !== 'string' || typeof svixSignature !== 'string') {
+        logger.warn({ svixId, svixTimestamp, svixSignature }, 'Resend webhook missing svix headers');
+        return reply.code(401).send({ error: 'Missing signature headers', code: 'MISSING_SIGNATURE' });
+      }
+
+      try {
+        const { Webhook } = await import('svix');
+        const wh = new Webhook(secret);
+        wh.verify(rawBody, {
+          'svix-id': svixId,
+          'svix-timestamp': svixTimestamp,
+          'svix-signature': svixSignature,
+        });
+      } catch (err) {
+        logger.warn({ err: (err as Error).message }, 'Resend webhook signature verification failed');
+        return reply.code(401).send({ error: 'Invalid signature', code: 'INVALID_SIGNATURE' });
+      }
+    } else {
+      logger.warn('RESEND_WEBHOOK_SECRET not configured — accepting webhook without signature verification');
     }
 
     try {
@@ -1314,6 +1519,64 @@ export async function buildServer({ scheduler }: ServerOptions = {}) {
     }
 
     return reply.code(200).send({ received: true });
+  });
+
+  // ── POST /api/agents/report-generator/run ────────────────────────────────
+  // Fire-and-forget trigger for ReportGeneratorAgent.
+  // Generates weekly digest and monthly market brief insights.
+
+  app.post('/api/agents/report-generator/run', async (_request, reply) => {
+    const { ReportGeneratorAgent } = await import('../agents/signals/report-generator-agent.js');
+    const agent = new ReportGeneratorAgent();
+
+    agent.run().catch((err: unknown) => {
+      logger.error({ err }, '[server] ReportGeneratorAgent background run failed');
+    });
+
+    return reply.code(202).send({
+      accepted: true,
+      message: 'Report generation started',
+      note: 'Results appear in /api/insights (types: weekly_report, market_brief) once complete',
+    });
+  });
+
+  // ── POST /api/agents/trigger-rules/run ───────────────────────────────────
+  // Fire-and-forget trigger for TriggerRulesEngine.
+  // Evaluates all active trigger_rules against current opportunity_scores.
+
+  app.post('/api/agents/trigger-rules/run', async (_request, reply) => {
+    const { TriggerRulesEngine } = await import('../agents/trigger-rules-engine.js');
+    const engine = new TriggerRulesEngine();
+
+    engine.run().catch((err: unknown) => {
+      logger.error({ err }, '[server] TriggerRulesEngine background run failed');
+    });
+
+    return reply.code(202).send({
+      accepted: true,
+      message: 'Trigger rules evaluation started',
+      note: 'Fires alerts and queues leads for corridors that exceed rule thresholds',
+    });
+  });
+
+  // ── POST /api/agents/master-scheduler/run ────────────────────────────────
+  // Fire-and-forget trigger for MasterSchedulerAgent.
+  // Runs the full pipeline: trade flow → analytics → NI routing → crawlers →
+  // trend scheduler → lead-gen chain → trigger rules.
+
+  app.post('/api/agents/master-scheduler/run', async (_request, reply) => {
+    const { MasterSchedulerAgent } = await import('../agents/master-scheduler.js');
+    const agent = new MasterSchedulerAgent();
+
+    agent.run().catch((err: unknown) => {
+      logger.error({ err }, '[server] MasterSchedulerAgent background run failed');
+    });
+
+    return reply.code(202).send({
+      accepted: true,
+      message: 'Full pipeline run started',
+      note: 'Runs all agents sequentially; check /api/crawl-jobs and /api/insights for progress',
+    });
   });
 
   return app;

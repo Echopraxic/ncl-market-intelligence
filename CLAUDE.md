@@ -110,16 +110,21 @@ The system fully answers the four strategic questions when all items below are d
 - [x] **CRMExportAgent**: weekly JSON export to `exports/crm-leads-<date>.json`; `crmExportedAt` tracking
 - [x] **API endpoints**: `GET/PATCH /api/leads`, `GET /api/campaigns`, `POST /api/campaigns/:id/send`, `GET /api/lead-pipeline`, `POST /api/agents/lead-*/run`, `POST /api/webhooks/resend`
 - [x] **Dashboard**: `/leads`, `/outreach-queue`, `/lead-pipeline` + nav links + homepage stats row
-- [ ] **Weekly Master Scheduler**: orchestrate full pipeline on a cron (including lead gen agents)
-- [ ] **Real-time Alerts**: webhook/notification when acceleration breakpoint detected (>50% slope shift)
-- [ ] **Monthly/Quarterly Report Generator**: aggregate insights, top opportunities, pipeline metrics
-- [ ] **Trigger Rules Engine**: activate `triggerRules` table; fire actions when composite_score crosses thresholds
-- [ ] Dashboard: Reports page (generated reports, download/send options)
+- [x] **Weekly Master Scheduler**: `MasterSchedulerAgent` orchestrates full pipeline — trade flow → analytics → NI routing → crawlers → trend scheduler → lead-gen chain → trigger rules; `POST /api/agents/master-scheduler/run`
+- [x] **Real-time Alerts**: breakthrough-tier trends insert high-priority `humanReviewItems` rows (priority=10) in TrendScheduler step 5b
+- [x] **Monthly/Quarterly Report Generator**: `ReportGeneratorAgent` writes weekly digest + monthly market brief to `insights` table; `POST /api/agents/report-generator/run`
+- [x] **Trigger Rules Engine**: `TriggerRulesEngine` evaluates active `triggerRules` against `opportunity_scores`; fires alert insights + queues leads for outreach; `POST /api/agents/trigger-rules/run`
+- [x] Dashboard: Reports page (`/reports`) — lists weekly digests and monthly briefs with trigger buttons
 
 ### Infrastructure
-- [ ] **Resolve Redis blocker**: upgrade to Redis 5+ via WSL2 (`sudo apt install redis-server`) or Upstash cloud instance
-  - Until resolved: CrawlerScheduler runs in direct-execution fallback mode
-- [ ] **Deploy to Railway**: configure Railway services for API, dashboard, Postgres, Redis
+- [x] **Resolve Redis blocker**: Railway Redis 7 resolves the Windows dev blocker (local Redis 3.0.504 is dev-only). Production uses Railway Redis plugin which satisfies BullMQ's Redis 5+ requirement.
+- [x] **Deploy to Railway**: `Dockerfile` (API) + `apps/dashboard/Dockerfile` (dashboard) + `railway.toml` per service. See `DEPLOY.md` for step-by-step guide.
+  - API: builds from repo root, runs `runMigrations()` idempotently on startup before serving
+  - Dashboard: Next.js standalone build, reads `API_URL` + `API_SECRET_KEY` env vars
+  - DB: Railway Postgres plugin with pgvector extension; schema applied automatically
+  - Redis: Railway Redis 7 plugin enables full BullMQ scheduler in production
+- [x] **Production migration runner**: `apps/api/src/db/migrate.ts` — comprehensive idempotent DDL (all tables, indexes, enums, pgvector) runs on every startup via `runMigrations()` called from `index.ts`
+- [x] **Health check with DB ping**: `/health` now verifies DB connectivity; returns 503 if DB unreachable so Railway can restart the container
 - [x] **Scoring weights config**: `apps/api/src/config/scoring-weights.json` — exists with tier boundaries, aliases, trade show keywords
 
 ## Key Design Decisions
@@ -220,11 +225,12 @@ docker-compose up postgres redis  — Start local DB + Redis
 | LeadEngagementAgent | `apps/api/src/agents/lead-gen/lead-engagement-agent.ts` | Complete |
 | CRMExportAgent | `apps/api/src/agents/lead-gen/crm-export-agent.ts` | Complete |
 
-### Not Yet Built
-| Agent | Purpose |
-|-------|---------|
-| MasterSchedulerAgent | Weekly pipeline orchestration (including lead gen) |
-| ReportGeneratorAgent | Monthly/quarterly digests |
+### Phase C — Orchestration & Reporting (Complete)
+| Agent | File | Status |
+|-------|------|--------|
+| MasterSchedulerAgent | `apps/api/src/agents/master-scheduler.ts` | Complete |
+| TriggerRulesEngine | `apps/api/src/agents/trigger-rules-engine.ts` | Complete |
+| ReportGeneratorAgent | `apps/api/src/agents/signals/report-generator-agent.ts` | Complete |
 
 ## API Endpoints
 

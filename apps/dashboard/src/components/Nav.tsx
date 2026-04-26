@@ -17,6 +17,8 @@ const LINKS = [
   { href: '/leads',             label: 'Leads',             icon: '⊕' },
   { href: '/outreach-queue',    label: 'Outreach Queue',    icon: '✉' },
   { href: '/lead-pipeline',     label: 'Lead Pipeline',     icon: '▷' },
+  // Reports
+  { href: '/reports',           label: 'Reports',           icon: '◧' },
 ];
 
 export function Nav() {

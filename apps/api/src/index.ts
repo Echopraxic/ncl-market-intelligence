@@ -1,16 +1,32 @@
 import { buildServer } from './api/server.js';
 import { logger } from './lib/logger.js';
+import { runMigrations } from './db/migrate.js';
 import { CrawlerScheduler } from './agents/crawlers/scheduler.js';
 import { TradeShowCrawler } from './agents/crawlers/trade-show-crawler.js';
 import { ShopifyBrandCrawler } from './agents/crawlers/shopify-brand-crawler.js';
 import { GoogleTrendsCrawler } from './agents/crawlers/google-trends-crawler.js';
 import { AmazonEUCrawler } from './agents/crawlers/amazon-eu-crawler.js';
+import { CPGDirectoryCrawler } from './agents/crawlers/cpg-directory-crawler.js';
+import { FaireCrawler } from './agents/crawlers/faire-crawler.js';
+import { ThingTestingCrawler } from './agents/crawlers/thingtesting-crawler.js';
+import { BulletinCrawler } from './agents/crawlers/bulletin-crawler.js';
 
 const PORT = parseInt(process.env.PORT ?? '3001', 10);
 const HOST = process.env.HOST ?? '0.0.0.0';
 const REDIS_URL = process.env.REDIS_URL ?? 'redis://localhost:6379';
 
 async function main() {
+  // -------------------------------------------------------------------------
+  // Database migration (idempotent — safe to run on every startup)
+  // -------------------------------------------------------------------------
+
+  try {
+    await runMigrations();
+  } catch (err) {
+    logger.error(err, 'DB migration failed — cannot start server');
+    process.exit(1);
+  }
+
   // -------------------------------------------------------------------------
   // Crawler scheduler (BullMQ — requires Redis 5+)
   // -------------------------------------------------------------------------
@@ -26,10 +42,17 @@ async function main() {
     //   google-trends   — every Wednesday at 03:00 (weekly trend pulse)
     //   amazon-eu       — every Thursday at 03:00 (weekly demand signal)
 
+    // Cron schedules (all times UTC):
+    //   Week A (market data):   trade-show Mon, shopify-brand Tue, google-trends Wed, amazon-eu Thu
+    //   Week B (lead sources):  cpg-directory Fri, faire Sat, thingtesting Sun, bulletin Mon 06:00
     scheduler.register('trade-show',    () => new TradeShowCrawler(),    '0 3 * * 1');
     scheduler.register('shopify-brand', () => new ShopifyBrandCrawler(), '0 3 * * 2');
     scheduler.register('google-trends', () => new GoogleTrendsCrawler(), '0 3 * * 3');
     scheduler.register('amazon-eu',     () => new AmazonEUCrawler(),     '0 3 * * 4');
+    scheduler.register('cpg-directory', () => new CPGDirectoryCrawler(), '0 3 * * 5');
+    scheduler.register('faire',         () => new FaireCrawler(),         '0 3 * * 6');
+    scheduler.register('thingtesting',  () => new ThingTestingCrawler(),  '0 3 * * 0');
+    scheduler.register('bulletin',      () => new BulletinCrawler(),      '0 6 * * 1');
 
     logger.info({ crawlers: scheduler.registeredCrawlers() }, 'Crawlers registered');
   } catch (err) {
@@ -38,9 +61,17 @@ async function main() {
   }
 
   // Absorb async BullMQ connection errors so the process does not crash when
-  // Redis is unavailable or is an incompatible version.
+  // Redis is unavailable or is an incompatible version. Only matches strings
+  // that look like infrastructure noise — anything else is logged at error
+  // level so real agent bugs are surfaced rather than silently swallowed.
+  const REDIS_NOISE = /(Redis|BullMQ|ECONNREFUSED|NOAUTH|ETIMEDOUT|ENOTFOUND.*redis)/i;
   process.on('unhandledRejection', (reason) => {
-    logger.warn({ reason: String(reason) }, 'Unhandled rejection (likely BullMQ/Redis) — ignoring');
+    const msg = reason instanceof Error ? reason.message : String(reason);
+    if (REDIS_NOISE.test(msg)) {
+      logger.warn({ reason: msg }, 'Unhandled rejection from Redis/BullMQ — ignoring');
+      return;
+    }
+    logger.error({ reason: msg, stack: reason instanceof Error ? reason.stack : undefined }, 'Unhandled rejection');
   });
 
   // -------------------------------------------------------------------------

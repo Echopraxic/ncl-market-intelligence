@@ -1,10 +1,11 @@
-version: '3.9'
+version: '3.8'
 
 services:
   postgres:
-    image: pgvector/pgvector:pg16
-    container_name: ncl_postgres
-    restart: unless-stopped
+    build:
+      context: .
+      dockerfile: Dockerfile.postgres
+    container_name: ncl-postgres
     environment:
       POSTGRES_USER: ncl_user
       POSTGRES_PASSWORD: ncl_password
@@ -14,15 +15,14 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ncl_user -d ncl_mie"]
+      test: ["CMD-SHELL", "pg_isready -U ncl_user"]
       interval: 10s
       timeout: 5s
       retries: 5
 
   redis:
-    image: redis:7-alpine
-    container_name: ncl_redis
-    restart: unless-stopped
+    image: redis:7
+    container_name: ncl-redis
     ports:
       - "6379:6379"
     volumes:
@@ -32,26 +32,6 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-
-  api:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: ncl_api
-    restart: unless-stopped
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    env_file:
-      - .env
-    environment:
-      DATABASE_URL: postgresql://ncl_user:ncl_password@postgres:5432/ncl_mie
-      REDIS_URL: redis://redis:6379
-      NODE_ENV: production
-    ports:
-      - "3001:3001"
 
 volumes:
   postgres_data:
