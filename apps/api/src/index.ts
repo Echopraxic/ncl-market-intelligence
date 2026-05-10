@@ -10,6 +10,7 @@ import { CPGDirectoryCrawler } from './agents/crawlers/cpg-directory-crawler.js'
 import { FaireCrawler } from './agents/crawlers/faire-crawler.js';
 import { ThingTestingCrawler } from './agents/crawlers/thingtesting-crawler.js';
 import { BulletinCrawler } from './agents/crawlers/bulletin-crawler.js';
+import { IndustryDirectoryCrawler } from './agents/crawlers/industry-directory-crawler.js';
 
 const PORT = parseInt(process.env.PORT ?? '3001', 10);
 const HOST = process.env.HOST ?? '0.0.0.0';
@@ -52,7 +53,8 @@ async function main() {
     scheduler.register('cpg-directory', () => new CPGDirectoryCrawler(), '0 3 * * 5');
     scheduler.register('faire',         () => new FaireCrawler(),         '0 3 * * 6');
     scheduler.register('thingtesting',  () => new ThingTestingCrawler(),  '0 3 * * 0');
-    scheduler.register('bulletin',      () => new BulletinCrawler(),      '0 6 * * 1');
+    scheduler.register('bulletin',           () => new BulletinCrawler(),           '0 6 * * 1');
+    scheduler.register('industry-directory', () => new IndustryDirectoryCrawler(),  '0 4 * * 2');
 
     logger.info({ crawlers: scheduler.registeredCrawlers() }, 'Crawlers registered');
   } catch (err) {
@@ -66,9 +68,14 @@ async function main() {
   // level so real agent bugs are surfaced rather than silently swallowed.
   const REDIS_NOISE = /(Redis|BullMQ|ECONNREFUSED|NOAUTH|ETIMEDOUT|ENOTFOUND.*redis)/i;
   process.on('unhandledRejection', (reason) => {
-    const msg = reason instanceof Error ? reason.message : String(reason);
-    if (REDIS_NOISE.test(msg)) {
-      logger.warn({ reason: msg }, 'Unhandled rejection from Redis/BullMQ — ignoring');
+    // AggregateError (e.g. from ioredis retry storms) often has an empty .message;
+    // fall back to String(reason) which includes the class name and error code.
+    const msg = reason instanceof Error
+      ? (reason.message || String(reason))
+      : String(reason);
+    const code = (reason as { code?: string })?.code ?? '';
+    if (REDIS_NOISE.test(msg) || REDIS_NOISE.test(code)) {
+      logger.warn({ reason: msg || code }, 'Unhandled rejection from Redis/BullMQ — ignoring');
       return;
     }
     logger.error({ reason: msg, stack: reason instanceof Error ? reason.stack : undefined }, 'Unhandled rejection');

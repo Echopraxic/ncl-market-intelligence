@@ -17,6 +17,10 @@ const LINKS = [
   { href: '/leads',             label: 'Leads',             icon: '⊕' },
   { href: '/outreach-queue',    label: 'Outreach Queue',    icon: '✉' },
   { href: '/lead-pipeline',     label: 'Lead Pipeline',     icon: '▷' },
+  // Distributor Intelligence
+  { href: '/distributors',          label: 'Distributors',     icon: '⊡' },
+  { href: '/buyer-intent',          label: 'Buyer Intent',     icon: '⤷' },
+  { href: '/distributor-matches',   label: 'Matches',          icon: '⇄' },
   // Reports
   { href: '/reports',           label: 'Reports',           icon: '◧' },
 ];

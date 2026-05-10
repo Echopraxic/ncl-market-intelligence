@@ -61,6 +61,13 @@ export class CrawlerScheduler {
       },
     );
 
+    // Absorb connection errors from BullMQ internals so they don't surface as
+    // unhandled rejections when Redis is unavailable (e.g. local dev without Redis 5+).
+    const onQueueError = (err: Error) => logger.warn({ err: err.message }, 'BullMQ queue connection error — scheduler running in degraded mode');
+    this.queue.on('error', onQueueError);
+    this.normalizationQueue.on('error', onQueueError);
+    this.worker.on('error', (err) => logger.warn({ err: err.message }, 'BullMQ worker connection error — scheduler running in degraded mode'));
+
     this.worker.on('completed', (job, result) => {
       logger.info(
         { crawlerType: job.name, recordsFound: result.recordsFound },

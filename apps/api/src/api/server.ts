@@ -3,7 +3,7 @@ import cors from '@fastify/cors';
 import { z } from 'zod';
 import { logger } from '../lib/logger.js';
 import { db } from '../db/index.js';
-import { brands, crawlJobs, euMarketSignals, tradeShows, tradeShowExhibitors, tradeShowPlaybooks, trends, gapScores, retailerInsights, tradeFlowIntelligence, tradeFlowAnalytics, niRoutingSignals, opportunityCorrelations, opportunityScores, humanReviewItems, insights, leads, leadCampaigns, leadPipeline } from '../db/schema.js';
+import { brands, crawlJobs, euMarketSignals, tradeShows, tradeShowExhibitors, tradeShowPlaybooks, trends, gapScores, retailerInsights, tradeFlowIntelligence, tradeFlowAnalytics, niRoutingSignals, opportunityCorrelations, opportunityScores, humanReviewItems, insights, leads, leadCampaigns, leadPipeline, distributors, distributorBuyingIntent, distributorBrandMatches } from '../db/schema.js';
 import { desc, asc, eq, and, gte, lte, isNull, isNotNull, sql, inArray, type SQL } from 'drizzle-orm';
 import type { CrawlerScheduler } from '../agents/crawlers/scheduler.js';
 
@@ -294,10 +294,13 @@ export async function buildServer({ scheduler }: ServerOptions = {}) {
       await scheduler.trigger(type);
       return reply.send({ queued: true, crawlerType: type });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
+      // AggregateError from ioredis may have empty .message; fall back to String().
+      const msg = err instanceof Error ? (err.message || String(err)) : String(err);
+      const code = (err as { code?: string })?.code ?? '';
+      const REDIS_ERR = /Redis|ECONNREFUSED|NOAUTH|ETIMEDOUT/i;
       // Queue infrastructure errors (e.g. Redis < 5) — fall back to running the
       // crawler directly in the background so the button still works without Redis.
-      if (msg.includes('Redis') || msg.includes('ECONNREFUSED') || msg.includes('NOAUTH')) {
+      if (REDIS_ERR.test(msg) || REDIS_ERR.test(code)) {
         try {
           scheduler.runDirect(type);
           return reply.send({ queued: false, running: true, crawlerType: type, note: 'Running directly — Redis unavailable' });
@@ -1326,24 +1329,6 @@ export async function buildServer({ scheduler }: ServerOptions = {}) {
     return reply.send({ lead: lead[0], campaigns, pipeline: pipeline[0] ?? null });
   });
 
-  // ── PATCH /api/leads/:id ──────────────────────────────────────────────────
-
-  app.patch<{ Params: { id: string } }>('/api/leads/:id', async (request, reply) => {
-    const LeadPatchSchema = z.object({
-      status:     z.enum(['new','reviewed','approved','contacted','replied','qualified','won','lost','invalid']).optional(),
-      assignedTo: z.string().optional(),
-      notes:      z.string().optional(),
-    });
-    const parsed = LeadPatchSchema.safeParse(request.body);
-    if (!parsed.success) {
-      return reply.code(400).send({ error: 'Invalid request body', code: 'VALIDATION_ERROR', details: parsed.error.flatten().fieldErrors });
-    }
-    const { id } = request.params;
-    const updates = { ...parsed.data, updatedAt: new Date() };
-    await db.update(leads).set(updates).where(eq(leads.id, id));
-    return reply.send({ id, ...updates });
-  });
-
   // ── GET /api/campaigns ────────────────────────────────────────────────────
 
   app.get('/api/campaigns', async (request, reply) => {
@@ -1577,6 +1562,167 @@ export async function buildServer({ scheduler }: ServerOptions = {}) {
       message: 'Full pipeline run started',
       note: 'Runs all agents sequentially; check /api/crawl-jobs and /api/insights for progress',
     });
+  });
+
+  // ── GET /api/distributors ─────────────────────────────────────────────────
+
+  app.get('/api/distributors', async (request, reply) => {
+    const DistributorsQuerySchema = z.object({
+      country:   z.string().length(2).toUpperCase().optional(),
+      category:  z.string().min(1).optional(),
+      minScore:  z.coerce.number().min(0).max(100).optional(),
+      limit:     z.coerce.number().int().min(1).max(200).default(50),
+    });
+    const parsed = DistributorsQuerySchema.safeParse(request.query);
+    if (!parsed.success) {
+      return reply.code(400).send({ error: 'Invalid query parameters', code: 'VALIDATION_ERROR', details: parsed.error.flatten().fieldErrors });
+    }
+    const { country, category, minScore, limit } = parsed.data;
+
+    const conditions: SQL[] = [
+      country   ? eq(distributors.countryCode, country)                   : undefined,
+      category  ? sql`${distributors.categories} @> ARRAY[${category}]::text[]` : undefined,
+      minScore !== undefined ? gte(distributors.distributorScore, minScore) : undefined,
+    ].filter((c): c is SQL => c !== undefined);
+
+    const rows = await db
+      .select()
+      .from(distributors)
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(desc(distributors.distributorScore))
+      .limit(limit);
+
+    return reply.send({ distributors: rows, count: rows.length, limit });
+  });
+
+  // ── GET /api/buyer-intent ─────────────────────────────────────────────────
+
+  app.get('/api/buyer-intent', async (request, reply) => {
+    const BuyerIntentQuerySchema = z.object({
+      distributorId: z.string().uuid().optional(),
+      category:      z.string().min(1).optional(),
+      minStrength:   z.coerce.number().min(0).max(1).optional(),
+      limit:         z.coerce.number().int().min(1).max(200).default(50),
+    });
+    const parsed = BuyerIntentQuerySchema.safeParse(request.query);
+    if (!parsed.success) {
+      return reply.code(400).send({ error: 'Invalid query parameters', code: 'VALIDATION_ERROR', details: parsed.error.flatten().fieldErrors });
+    }
+    const { distributorId, category, minStrength, limit } = parsed.data;
+
+    const conditions: SQL[] = [
+      distributorId ? eq(distributorBuyingIntent.distributorId, distributorId)     : undefined,
+      category      ? eq(distributorBuyingIntent.category, category)               : undefined,
+      minStrength !== undefined ? gte(distributorBuyingIntent.intentStrength, minStrength) : undefined,
+    ].filter((c): c is SQL => c !== undefined);
+
+    const rows = await db
+      .select({
+        id:             distributorBuyingIntent.id,
+        distributorId:  distributorBuyingIntent.distributorId,
+        distributorName: distributors.name,
+        countryCode:    distributors.countryCode,
+        category:       distributorBuyingIntent.category,
+        intentStrength: distributorBuyingIntent.intentStrength,
+        source:         distributorBuyingIntent.source,
+        detectedAt:     distributorBuyingIntent.detectedAt,
+      })
+      .from(distributorBuyingIntent)
+      .innerJoin(distributors, eq(distributorBuyingIntent.distributorId, distributors.id))
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(desc(distributorBuyingIntent.intentStrength))
+      .limit(limit);
+
+    return reply.send({ intent: rows, count: rows.length, limit });
+  });
+
+  // ── GET /api/distributor-matches ──────────────────────────────────────────
+
+  app.get('/api/distributor-matches', async (request, reply) => {
+    const MatchesQuerySchema = z.object({
+      leadId:   z.string().uuid().optional(),
+      status:   z.enum(['suggested', 'pitched', 'connected', 'rejected']).optional(),
+      minScore: z.coerce.number().min(0).max(1).optional(),
+      limit:    z.coerce.number().int().min(1).max(200).default(50),
+    });
+    const parsed = MatchesQuerySchema.safeParse(request.query);
+    if (!parsed.success) {
+      return reply.code(400).send({ error: 'Invalid query parameters', code: 'VALIDATION_ERROR', details: parsed.error.flatten().fieldErrors });
+    }
+    const { leadId, status, minScore, limit } = parsed.data;
+
+    const conditions: SQL[] = [
+      leadId   ? eq(distributorBrandMatches.leadId, leadId)             : undefined,
+      status   ? eq(distributorBrandMatches.status, status)             : undefined,
+      minScore !== undefined ? gte(distributorBrandMatches.matchScore, minScore) : undefined,
+    ].filter((c): c is SQL => c !== undefined);
+
+    const rows = await db
+      .select({
+        id:              distributorBrandMatches.id,
+        distributorId:   distributorBrandMatches.distributorId,
+        distributorName: distributors.name,
+        countryCode:     distributors.countryCode,
+        leadId:          distributorBrandMatches.leadId,
+        leadCompany:     leads.companyName,
+        matchScore:      distributorBrandMatches.matchScore,
+        matchReasons:    distributorBrandMatches.matchReasons,
+        status:          distributorBrandMatches.status,
+        createdAt:       distributorBrandMatches.createdAt,
+      })
+      .from(distributorBrandMatches)
+      .innerJoin(distributors, eq(distributorBrandMatches.distributorId, distributors.id))
+      .leftJoin(leads, eq(distributorBrandMatches.leadId, leads.id))
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(desc(distributorBrandMatches.matchScore))
+      .limit(limit);
+
+    return reply.send({ matches: rows, count: rows.length, limit });
+  });
+
+  // ── POST /api/agents/distributor-discovery/run ────────────────────────────
+
+  app.post('/api/agents/distributor-discovery/run', async (_request, reply) => {
+    const { DistributorDiscoveryAgent } = await import('../agents/distributor/distributor-discovery-agent.js');
+    const agent = new DistributorDiscoveryAgent();
+    agent.run().catch((err: unknown) => logger.error({ err }, '[server] DistributorDiscoveryAgent failed'));
+    return reply.code(202).send({ accepted: true, message: 'Distributor discovery started', note: 'Results appear in /api/distributors once complete' });
+  });
+
+  // ── POST /api/agents/buyer-intent/run ─────────────────────────────────────
+
+  app.post('/api/agents/buyer-intent/run', async (_request, reply) => {
+    const { BuyerIntentAgent } = await import('../agents/distributor/buyer-intent-agent.js');
+    const agent = new BuyerIntentAgent();
+    agent.run().catch((err: unknown) => logger.error({ err }, '[server] BuyerIntentAgent failed'));
+    return reply.code(202).send({ accepted: true, message: 'Buyer intent analysis started', note: 'Results appear in /api/buyer-intent once complete' });
+  });
+
+  // ── POST /api/agents/distributor-scoring/run ──────────────────────────────
+
+  app.post('/api/agents/distributor-scoring/run', async (_request, reply) => {
+    const { DistributorScoringAgent } = await import('../agents/distributor/distributor-scoring-agent.js');
+    const agent = new DistributorScoringAgent();
+    agent.run().catch((err: unknown) => logger.error({ err }, '[server] DistributorScoringAgent failed'));
+    return reply.code(202).send({ accepted: true, message: 'Distributor scoring started' });
+  });
+
+  // ── POST /api/agents/distributor-matching/run ─────────────────────────────
+
+  app.post('/api/agents/distributor-matching/run', async (_request, reply) => {
+    const { DistributorMatchingAgent } = await import('../agents/distributor/distributor-matching-agent.js');
+    const agent = new DistributorMatchingAgent();
+    agent.run().catch((err: unknown) => logger.error({ err }, '[server] DistributorMatchingAgent failed'));
+    return reply.code(202).send({ accepted: true, message: 'Distributor matching started', note: 'Results appear in /api/distributor-matches once complete' });
+  });
+
+  // ── POST /api/agents/regulatory-fit/run ──────────────────────────────────
+
+  app.post('/api/agents/regulatory-fit/run', async (_request, reply) => {
+    const { RegulatoryFitAgent } = await import('../agents/distributor/regulatory-fit-agent.js');
+    const agent = new RegulatoryFitAgent();
+    agent.run().catch((err: unknown) => logger.error({ err }, '[server] RegulatoryFitAgent failed'));
+    return reply.code(202).send({ accepted: true, message: 'Regulatory fit assessment started', note: 'Seeds regulatory_flags table on first run; updates leads.regulatory_risk_level' });
   });
 
   return app;

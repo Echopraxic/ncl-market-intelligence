@@ -32,6 +32,8 @@ export class LeadScoringAgent {
         email: leads.email,
         linkedinUrl: leads.linkedinUrl,
         websiteUrl: leads.websiteUrl,
+        distributorMatchCount: leads.distributorMatchCount,
+        regulatoryRiskLevel: leads.regulatoryRiskLevel,
       })
       .from(leads)
       .where(eq(leads.leadQualityScore, 0));
@@ -61,6 +63,8 @@ export class LeadScoringAgent {
     email: string | null;
     linkedinUrl: string | null;
     websiteUrl: string | null;
+    distributorMatchCount: number | null;
+    regulatoryRiskLevel: string | null;
   }): Promise<{
     leadQualityScore: number;
     opportunityScore: number | null;
@@ -157,13 +161,20 @@ export class LeadScoringAgent {
     const contactBonus =
       (lead.email ? 50 : 0) + (lead.linkedinUrl ? 30 : 0) + (lead.websiteUrl ? 20 : 0);
 
-    const raw =
-      compositeScore * 0.40 +
-      gapScoreValue  * 0.25 +
-      trendBonus     * 0.20 +
-      contactBonus   * 0.15;
+    const distributorBonus = Math.min((lead.distributorMatchCount ?? 0) * 3, 15);
+    const regulatoryPenalty = lead.regulatoryRiskLevel === 'high' ? 20
+      : lead.regulatoryRiskLevel === 'medium' ? 8
+      : 0;
 
-    const leadQualityScore = Math.min(100, Math.round(raw * 100) / 100);
+    const raw =
+      compositeScore * 0.35 +
+      gapScoreValue  * 0.22 +
+      trendBonus     * 0.18 +
+      contactBonus   * 0.12 +
+      distributorBonus -
+      regulatoryPenalty;
+
+    const leadQualityScore = Math.min(100, Math.max(0, Math.round(raw * 100) / 100));
 
     return {
       leadQualityScore,

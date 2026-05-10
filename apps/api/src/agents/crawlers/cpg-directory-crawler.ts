@@ -9,28 +9,54 @@ import type { CrawlResult } from './base-crawler.js';
 
 const MAX_PAGES_PER_DIRECTORY = 10;
 
-const DIRECTORIES = [
+interface DirectoryConfig {
+  name: string;
+  baseUrl: string;
+  paginationParam: string;
+  selectors: {
+    card: string[];
+    name: string[];
+    website: string[];
+    category: string[];
+  };
+  defaultCategory: string;
+  pageUrlBuilder: (baseUrl: string, page: number, param: string) => string;
+}
+
+const DIRECTORIES: DirectoryConfig[] = [
   {
     name: 'cpgd',
-    baseUrl: 'https://cpgd.xyz',
+    baseUrl: 'https://www.cpgd.xyz/brands',
     paginationParam: 'page',
     selectors: {
-      card: '.brand-card, [class*="brand-card"], [class*="BrandCard"], article, .card',
-      name: 'h2, h3, .brand-name, [class*="name"], [class*="title"]',
-      website: 'a[href^="http"]:not([href*="cpgd.xyz"])',
-      category: '.category, [class*="tag"], [class*="category"], [class*="type"]',
+      card: ['.brand-card', '[class*="brand-card"]', '[class*="BrandCard"]', 'article', '.card', '.directory-item', '.brand-listing', '.listing'],
+      name: ['h2', 'h3', '.brand-name', '[class*="name"]', '[class*="title"]', '.title', '.company-name'],
+      website: [
+        'a[href^="http"]:not([href*="cpgd.xyz"]):not([href*="cpgd.com"])',
+        'a[href^="http"]',
+      ],
+      category: ['.category', '[class*="tag"]', '[class*="category"]', '[class*="type"]', '.tags span', '.meta span'],
     },
+    defaultCategory: 'Consumer Packaged Goods',
+    pageUrlBuilder: (baseUrl, page, param) =>
+      page === 1 ? baseUrl : `${baseUrl}?${param}=${page}`,
   },
   {
     name: 'bevnet',
     baseUrl: 'https://www.bevnet.com/companies/',
     paginationParam: 'paged',
     selectors: {
-      card: '.company-card, .listing-item, article',
-      name: 'h2, h3, .company-name',
-      website: 'a[href^="http"]:not([href*="bevnet.com"])',
-      category: '.category, .tags span',
+      card: ['.company-card', '.listing-item', 'article', '.company-listing', '[class*="company"]', '.listing'],
+      name: ['h2', 'h3', '.company-name', '.brand-name', '[class*="name"]', '[class*="title"]', '.title'],
+      website: [
+        'a[href^="http"]:not([href*="bevnet.com"])',
+        'a[href^="http"]',
+      ],
+      category: ['.category', '.tags span', '[class*="tag"]', '[class*="category"]', '.meta span'],
     },
+    defaultCategory: 'Beverage',
+    pageUrlBuilder: (baseUrl, page, param) =>
+      page === 1 ? baseUrl : `${baseUrl}?${param}=${page}`,
   },
 ];
 
@@ -38,6 +64,66 @@ export class CPGDirectoryCrawler extends BaseLeadCrawler {
   readonly crawlerType = 'cpg-directory';
 
   protected override readonly rateLimitMs = 2500;
+
+  /** Fallback selector resolution — tries multiple selectors and returns the first match. */
+  private resolveSelector($: cheerio.Root, element: cheerio.Element, selectors: string[]): cheerio.Cheerio {
+    for (const selector of selectors) {
+      const match = $(element).find(selector).first();
+      if (match.length > 0) return match;
+    }
+    return $([]);
+  }
+
+  /** Build a confidence score using fallback selector lists. */
+  private measureCardConfidence(
+    $: cheerio.Root,
+    checks: { name: string; selectors: string[]; expectedMin: number }[],
+  ): Record<string, { confidence: number; matchedSelector: string | null; count: number }> {
+    const result: Record<string, { confidence: number; matchedSelector: string | null; count: number }> = {};
+
+    for (const check of checks) {
+      let count = 0;
+      let matchedSelector: string | null = null;
+
+      for (const selector of check.selectors) {
+        const c = $(selector).length;
+        if (c > 0) {
+          count = c;
+          matchedSelector = selector;
+          break;
+        }
+      }
+
+      result[check.name] = {
+        confidence: Math.min(count / check.expectedMin, 1),
+        matchedSelector,
+        count,
+      };
+    }
+
+    return result;
+  }
+
+  /** Validate and normalize a URL string. */
+  private normalizeUrl(raw: string | undefined): string | undefined {
+    if (!raw) return undefined;
+    try {
+      const url = new URL(raw);
+      if (url.protocol !== 'http:' && url.protocol !== 'https:') return undefined;
+      return url.href;
+    } catch {
+      return undefined;
+    }
+  }
+
+  /** Normalize category strings — dedupe, trim, filter empties. */
+  private normalizeCategories(raw: string[], defaultCategory: string): string[] {
+    const cleaned = raw
+      .map((c) => c.trim())
+      .filter((c) => c.length > 0 && c.length < 100);
+    const unique = [...new Set(cleaned)];
+    return unique.length > 0 ? unique : [defaultCategory];
+  }
 
   async extractLeads(): Promise<LeadCandidate[]> {
     return [];
@@ -58,10 +144,8 @@ export class CPGDirectoryCrawler extends BaseLeadCrawler {
 
         for (let page = 1; page <= MAX_PAGES_PER_DIRECTORY; page++) {
           try {
-            await this.sleep(this.rateLimitMs);
-            const url = page === 1
-              ? directory.baseUrl
-              : `${directory.baseUrl}?${directory.paginationParam}=${page}`;
+            await this.sleep(this.currentRateLimitMs);
+            const url = directory.pageUrlBuilder(directory.baseUrl, page, directory.paginationParam);
 
             log.info({ url, page }, 'Scraping CPG directory page');
 
@@ -79,40 +163,73 @@ export class CPGDirectoryCrawler extends BaseLeadCrawler {
 
             let pageFoundItems = 0;
             try {
-              await browserPage.goto(url, { waitUntil: 'domcontentloaded', timeout: 25_000 });
+              const response = await browserPage.goto(url, {
+                waitUntil: 'domcontentloaded',
+                timeout: 25_000,
+              });
+
+              if (!response || response.status() >= 400) {
+                const status = response?.status() ?? 0;
+                throw new Error(`HTTP ${status} received for ${url}`);
+              }
+
               const { html } = await this.captureRenderedDOM(browserPage, { postLoadDelayMs: 1500 });
               const $ = cheerio.load(html);
 
-              const confidence = this.measureSelectorConfidence($, [
-                { name: 'card', selector: directory.selectors.card, expectedMin: 5 },
+              const confidence = this.measureCardConfidence($, [
+                { name: 'card', selectors: directory.selectors.card, expectedMin: 3 },
               ]);
 
-              if (confidence['card'].confidence < 0.3) {
-                log.info({ page }, 'No cards found — likely last page or layout change, stopping pagination');
+              const cardConfidence = confidence['card'];
+
+              if (cardConfidence.confidence < 0.3 || cardConfidence.count === 0) {
+                log.info(
+                  { page, matchedSelector: cardConfidence.matchedSelector, count: cardConfidence.count },
+                  'No cards found — likely last page or layout change, stopping pagination',
+                );
                 await browserPage.close();
                 await context.close();
                 break;
               }
 
-              $(directory.selectors.card).each((_i, el) => {
-                const name = $(el).find(directory.selectors.name).first().text().trim();
-                const websiteUrl = $(el).find(directory.selectors.website).first().attr('href');
-                const categoryText = $(el).find(directory.selectors.category).map((_j, c) => $(c).text().trim()).get().filter(Boolean);
+              const activeCardSelector = cardConfidence.matchedSelector ?? directory.selectors.card[0];
 
-                if (!name || name.length < 2) return;
+              $(activeCardSelector).each((_i, el) => {
+                const nameEl = this.resolveSelector($, el, directory.selectors.name);
+                const name = nameEl.text().trim();
+
+                const websiteEl = this.resolveSelector($, el, directory.selectors.website);
+                const websiteUrl = this.normalizeUrl(websiteEl.attr('href'));
+
+                const categoryEls = directory.selectors.category.flatMap((sel) =>
+                  $(el).find(sel).map((_j, c) => $(c).text().trim()).get(),
+                );
+                const categoryText = this.normalizeCategories(categoryEls, directory.defaultCategory);
+
+                if (!name || name.length < 2 || name.length > 200) return;
+                const lower = name.toLowerCase();
+                if (['loading', 'error', 'unknown', 'n/a', 'null'].includes(lower)) return;
 
                 candidates.push({
                   companyName: name,
-                  websiteUrl: websiteUrl ?? undefined,
-                  categories: categoryText.length > 0 ? categoryText : ['Consumer Packaged Goods'],
-                  rawMetadata: { source: directory.name, directory: directory.baseUrl, page },
+                  websiteUrl,
+                  categories: categoryText,
+                  rawMetadata: {
+                    source: directory.name,
+                    directory: directory.baseUrl,
+                    page,
+                    matchedCardSelector: activeCardSelector,
+                  },
                 });
                 pageFoundItems++;
               });
 
               pagesScraped++;
               this.adjustRateLimit('success');
-              log.info({ page, found: pageFoundItems, totalSoFar: candidates.length }, 'Directory page scraped');
+              log.info(
+                { page, found: pageFoundItems, totalSoFar: candidates.length, matchedSelector: activeCardSelector },
+                'Directory page scraped',
+              );
 
               if (pageFoundItems === 0) {
                 log.info({ page }, 'Empty page — stopping pagination');

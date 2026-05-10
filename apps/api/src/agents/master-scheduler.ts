@@ -125,9 +125,40 @@ export class MasterSchedulerAgent {
       return new LeadScoringAgent().run();
     });
 
+    // ── Step 5b: Distribution intelligence chain ──────────────────────────────
+    await this.runStep(steps, 'crawl-industry-directory', async () => {
+      const { IndustryDirectoryCrawler } = await import('./crawlers/industry-directory-crawler.js');
+      return new IndustryDirectoryCrawler().runWithTracking();
+    });
+
+    await this.runStep(steps, 'distributor-discovery', async () => {
+      const { DistributorDiscoveryAgent } = await import('./distributor/distributor-discovery-agent.js');
+      return new DistributorDiscoveryAgent().run();
+    });
+
+    await this.runStep(steps, 'buyer-intent', async () => {
+      const { BuyerIntentAgent } = await import('./distributor/buyer-intent-agent.js');
+      return new BuyerIntentAgent().run();
+    });
+
+    await this.runStep(steps, 'distributor-scoring', async () => {
+      const { DistributorScoringAgent } = await import('./distributor/distributor-scoring-agent.js');
+      return new DistributorScoringAgent().run();
+    });
+
+    await this.runStep(steps, 'regulatory-fit', async () => {
+      const { RegulatoryFitAgent } = await import('./distributor/regulatory-fit-agent.js');
+      return new RegulatoryFitAgent().run();
+    });
+
     await this.runStep(steps, 'pitch-angles', async () => {
       const { PitchAngleAgent } = await import('./lead-gen/pitch-angle-agent.js');
       return new PitchAngleAgent().run();
+    });
+
+    await this.runStep(steps, 'distributor-matching', async () => {
+      const { DistributorMatchingAgent } = await import('./distributor/distributor-matching-agent.js');
+      return new DistributorMatchingAgent().run();
     });
 
     await this.runStep(steps, 'crm-export', async () => {

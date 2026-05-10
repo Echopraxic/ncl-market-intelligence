@@ -1,8 +1,7 @@
 import { db } from '@/db/index.js';
-import { leads, gapScores, trends, niRoutingSignals } from '@/db/schema.js';
+import { leads, niRoutingSignals, distributorBrandMatches, distributors, distributorBuyingIntent, regulatoryFlags } from '@/db/schema.js';
 import { logger } from '@/lib/logger.js';
-import { eq, desc, and, isNull, avg } from 'drizzle-orm';
-import { sql } from 'drizzle-orm';
+import { eq, and, isNull, avg, sql, or } from 'drizzle-orm';
 
 const DEEPSEEK_API_URL = 'https://api.deepseek.com/chat/completions';
 
@@ -36,9 +35,17 @@ export class PitchAngleAgent {
           continue;
         }
 
-        const niStrength = await this.getNISignalStrength(lead.bestCategory, lead.bestCountryCode);
-        const { angle, template } = this.selectAngle(lead, niStrength);
-        const pitchSummary = await this.expandSummary(lead.companyName, lead.bestCategory, lead.bestCountryCode, angle, template, lead);
+        const [niStrength, distMatches, topFlag] = await Promise.all([
+          this.getNISignalStrength(lead.bestCategory, lead.bestCountryCode),
+          this.getDistributorMatches(lead.id),
+          this.getTopRegulatoryFlag(lead.bestCategory, lead.bestCountryCode),
+        ]);
+
+        const { angle, template } = this.selectAngle(lead, niStrength, distMatches);
+        const pitchSummary = await this.expandSummary(
+          lead.companyName, lead.bestCategory, lead.bestCountryCode,
+          angle, template, lead, distMatches, topFlag,
+        );
 
         await db
           .update(leads)
@@ -59,9 +66,18 @@ export class PitchAngleAgent {
   private selectAngle(
     lead: { gapScore: number | null; trendTier: string | null; leadQualityScore: number },
     niStrength: number,
+    distMatches: Array<{ name: string; countryCode: string }>,
   ): { angle: string; template: string } {
     const gap = lead.gapScore ?? 0;
     const tier = lead.trendTier ?? '';
+
+    if (distMatches.length >= 2) {
+      const countries = [...new Set(distMatches.map(m => m.countryCode))].join(', ');
+      return {
+        angle: 'distributor_pull',
+        template: `${distMatches.length} EU distributors in our network (${countries}) are actively sourcing this category right now.`,
+      };
+    }
 
     if (gap > 70 && ['breakthrough', 'accelerating'].includes(tier)) {
       return {
@@ -104,6 +120,48 @@ export class PitchAngleAgent {
     }
   }
 
+  private async getDistributorMatches(leadId: string): Promise<Array<{ name: string; countryCode: string; intentStrength: number | null }>> {
+    try {
+      return await db
+        .select({
+          name: distributors.name,
+          countryCode: distributors.countryCode,
+          intentStrength: distributorBuyingIntent.intentStrength,
+        })
+        .from(distributorBrandMatches)
+        .innerJoin(distributors, eq(distributorBrandMatches.distributorId, distributors.id))
+        .leftJoin(
+          distributorBuyingIntent,
+          and(
+            eq(distributorBuyingIntent.distributorId, distributors.id),
+          ),
+        )
+        .where(eq(distributorBrandMatches.leadId, leadId))
+        .limit(5);
+    } catch {
+      return [];
+    }
+  }
+
+  private async getTopRegulatoryFlag(category: string, countryCode: string): Promise<{ riskLevel: string; description: string } | null> {
+    try {
+      const flags = await db
+        .select({ riskLevel: regulatoryFlags.riskLevel, description: regulatoryFlags.description })
+        .from(regulatoryFlags)
+        .where(
+          or(
+            and(eq(regulatoryFlags.category, category), eq(regulatoryFlags.countryCode, countryCode)),
+            and(eq(regulatoryFlags.category, category), eq(regulatoryFlags.countryCode, 'EU')),
+          ),
+        )
+        .orderBy(sql`CASE ${regulatoryFlags.riskLevel} WHEN 'high' THEN 3 WHEN 'medium' THEN 2 ELSE 1 END DESC`)
+        .limit(1);
+      return flags[0] ?? null;
+    } catch {
+      return null;
+    }
+  }
+
   private async expandSummary(
     companyName: string,
     category: string,
@@ -111,6 +169,8 @@ export class PitchAngleAgent {
     angle: string,
     template: string,
     lead: { gapScore: number | null; trendTier: string | null },
+    distMatches: Array<{ name: string; countryCode: string }>,
+    topFlag: { riskLevel: string; description: string } | null,
   ): Promise<string> {
     const base = template
       .replace('{{category}}', category)
@@ -120,6 +180,13 @@ export class PitchAngleAgent {
     const apiKey = process.env.DEEPSEEK_API_KEY;
     if (!apiKey) return base;
 
+    const distributorContext = distMatches.length > 0
+      ? `Distributor pull: ${distMatches.map(m => `${m.name} (${m.countryCode})`).join(', ')} are actively sourcing this category.`
+      : '';
+    const regulatoryNote = topFlag
+      ? `Regulatory note (${topFlag.riskLevel} risk): ${topFlag.description}`
+      : 'No known compliance barriers for this category/market.';
+
     try {
       const prompt = `You are writing concise, data-backed B2B outreach for NCL, a Northern Ireland logistics company. Expand this pitch hook for ${companyName} into 2–3 sentences. Keep it factual, specific, and under 60 words. No fluff.
 
@@ -127,7 +194,9 @@ Hook: ${base}
 Pitch angle: ${angle}
 Category: ${category}
 Target market: ${countryCode}
-Trend: ${lead.trendTier ?? 'sustained'}`;
+Trend: ${lead.trendTier ?? 'sustained'}
+${distributorContext}
+${regulatoryNote}`;
 
       const response = await fetch(DEEPSEEK_API_URL, {
         method: 'POST',

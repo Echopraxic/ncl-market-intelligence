@@ -79,7 +79,11 @@
       "Bash(node --input-type=module:*)",
       "Bash(node --env-file=.env check_cols.mjs)",
       "Bash(npx tsx *)",
-      "Bash(chmod +x /c/Users/mikey/ncl-market-intelligence/scripts/setup-local.sh)"
+      "Bash(chmod +x /c/Users/mikey/ncl-market-intelligence/scripts/setup-local.sh)",
+      "Bash(pkill -f \"node.*src/index.ts\")",
+      "PowerShell(Stop-Process -Port 3001 -Force -ErrorAction SilentlyContinue)",
+      "PowerShell(netstat -ano)",
+      "Bash(node -e \"const cheerio = require\\('c:/Users/mikey/ncl-market-intelligence/node_modules/cheerio'\\); const t = cheerio.load\\('<div>'\\); console.log\\(typeof t, typeof t.load\\)\")"
     ]
   }
 }

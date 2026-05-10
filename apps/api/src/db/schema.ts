@@ -112,16 +112,29 @@ export const tradeShowPlaybooks = pgTable('trade_show_playbooks', {
 }));
 
 export const distributors = pgTable('distributors', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  name: text('name').notNull(),
-  countryCode: text('country_code').notNull(),
-  categories: text('categories').array(),
-  brandsCarried: text('brands_carried').array(),
-  websiteUrl: text('website_url'),
-  contactInfo: jsonb('contact_info'),
-  importsUsGoods: boolean('imports_us_goods').default(false),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-});
+  id:               uuid('id').primaryKey().defaultRandom(),
+  name:             text('name').notNull(),
+  countryCode:      text('country_code').notNull(),
+  categories:       text('categories').array(),
+  brandsCarried:    text('brands_carried').array(),
+  websiteUrl:       text('website_url'),
+  contactInfo:      jsonb('contact_info'),
+  importsUsGoods:   boolean('imports_us_goods').default(false),
+  description:      text('description'),
+  contactName:      text('contact_name'),
+  contactEmail:     text('contact_email'),
+  linkedinUrl:      text('linkedin_url'),
+  discoverySource:  text('discovery_source'),           // 'europages' | 'kompass' | 'linkedin' | 'trade_show'
+  employeeCount:    integer('employee_count'),
+  revenueTier:      text('revenue_tier'),               // 'micro' | 'small' | 'mid' | 'large'
+  distributorScore: real('distributor_score').default(0),
+  status:           text('status').notNull().default('new'),
+  createdAt:        timestamp('created_at').notNull().defaultNow(),
+  updatedAt:        timestamp('updated_at').notNull().defaultNow(),
+}, (t) => ({
+  nameCountryUniq: uniqueIndex('distributor_name_country_uniq').on(t.name, t.countryCode),
+  scoreIdx:        index('distributor_score_idx').on(t.distributorScore),
+}));
 
 export const retailerActivities = pgTable('retailer_activities', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -208,6 +221,8 @@ export const leads = pgTable('leads', {
   employeeCount:         integer('employee_count'),
   euPresence:            boolean('eu_presence').default(false),
   employeeGrowthSignal:  text('employee_growth_signal'),
+  regulatoryRiskLevel:   text('regulatory_risk_level'),          // null | 'low' | 'medium' | 'high'
+  distributorMatchCount: integer('distributor_match_count').default(0),
   status:                leadStatusEnum('status').notNull().default('new'),
   assignedTo:            text('assigned_to'),
   notes:                 text('notes'),
@@ -702,6 +717,52 @@ export const triggerRules = pgTable('trigger_rules', {
   isActive: boolean('is_active').notNull().default(true),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 });
+
+// ---------------------------------------------------------------------------
+// Phase 5 — Distribution Intelligence Tables
+// ---------------------------------------------------------------------------
+
+export const distributorBuyingIntent = pgTable('distributor_buying_intent', {
+  id:             uuid('id').primaryKey().defaultRandom(),
+  distributorId:  uuid('distributor_id').notNull().references(() => distributors.id, { onDelete: 'cascade' }),
+  category:       text('category').notNull(),
+  intentStrength: real('intent_strength').default(0),  // 0–1
+  signals:        jsonb('signals'),                    // { jobTitles[], tradeShows[], keywords[] }
+  source:         text('source').notNull(),            // 'linkedin_job' | 'trade_show' | 'directory' | 'website'
+  detectedAt:     timestamp('detected_at').notNull().defaultNow(),
+}, (t) => ({
+  distCatUniq:  uniqueIndex('dbi_distributor_category_uniq').on(t.distributorId, t.category),
+  intentIdx:    index('dbi_intent_strength_idx').on(t.intentStrength, t.category),
+}));
+
+export const distributorBrandMatches = pgTable('distributor_brand_matches', {
+  id:            uuid('id').primaryKey().defaultRandom(),
+  distributorId: uuid('distributor_id').notNull().references(() => distributors.id, { onDelete: 'cascade' }),
+  leadId:        uuid('lead_id').references(() => leads.id, { onDelete: 'set null' }),
+  brandId:       uuid('brand_id').references(() => brands.id, { onDelete: 'set null' }),
+  matchScore:    real('match_score').default(0),
+  matchReasons:  jsonb('match_reasons'),               // ['category_alignment', 'country_match', 'intent_signal']
+  status:        text('status').notNull().default('suggested'), // 'suggested'|'pitched'|'connected'|'rejected'
+  createdAt:     timestamp('created_at').notNull().defaultNow(),
+}, (t) => ({
+  matchScoreIdx:  index('dbm_match_score_idx').on(t.matchScore),
+  leadIdx:        index('dbm_lead_idx').on(t.leadId),
+  statusIdx:      index('dbm_status_idx').on(t.status),
+}));
+
+export const regulatoryFlags = pgTable('regulatory_flags', {
+  id:               uuid('id').primaryKey().defaultRandom(),
+  category:         text('category').notNull(),
+  countryCode:      text('country_code').notNull(),     // specific ISO-2 country OR 'EU' for bloc-wide rules
+  riskLevel:        text('risk_level').notNull(),       // 'low' | 'medium' | 'high'
+  flagType:         text('flag_type').notNull(),        // 'novel_food' | 'labelling' | 'certification' | 'ingredient_restriction'
+  description:      text('description').notNull(),
+  sourceRegulation: text('source_regulation'),
+  createdAt:        timestamp('created_at').notNull().defaultNow(),
+}, (t) => ({
+  uniq:        uniqueIndex('reg_flags_cat_country_flag_uniq').on(t.category, t.countryCode, t.flagType),
+  riskIdx:     index('reg_flags_risk_idx').on(t.riskLevel, t.category),
+}));
 
 // Relations
 export const brandsRelations = relations(brands, ({ many }) => ({

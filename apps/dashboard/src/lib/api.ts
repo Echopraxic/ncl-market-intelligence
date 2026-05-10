@@ -532,3 +532,79 @@ export type BrandDetail = {
 export async function getBrand(id: string): Promise<BrandDetail> {
   return apiFetch(`/api/brands/${id}`, undefined, 30);
 }
+
+// ---------------------------------------------------------------------------
+// Distribution Intelligence types
+// ---------------------------------------------------------------------------
+
+export type Distributor = {
+  id: string;
+  name: string;
+  countryCode: string;
+  categories: string[] | null;
+  description: string | null;
+  contactEmail: string | null;
+  contactName: string | null;
+  websiteUrl: string | null;
+  linkedinUrl: string | null;
+  discoverySource: string | null;
+  distributorScore: number | null;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type BuyerIntent = {
+  id: string;
+  distributorId: string;
+  distributorName: string;
+  countryCode: string;
+  category: string;
+  intentStrength: number | null;
+  source: string;
+  detectedAt: string;
+};
+
+export type DistributorMatch = {
+  id: string;
+  distributorId: string;
+  distributorName: string;
+  countryCode: string;
+  leadId: string | null;
+  leadCompany: string | null;
+  matchScore: number | null;
+  matchReasons: string[] | null;
+  status: string;
+  createdAt: string;
+};
+
+// ---------------------------------------------------------------------------
+// Distribution Intelligence API functions
+// ---------------------------------------------------------------------------
+
+export async function getDistributors(params?: {
+  country?: string;
+  category?: string;
+  minScore?: number;
+  limit?: number;
+}): Promise<{ distributors: Distributor[]; count: number; limit: number }> {
+  return apiFetch('/api/distributors', params as Record<string, string | number | boolean | undefined>, 0);
+}
+
+export async function getBuyerIntent(params?: {
+  distributorId?: string;
+  category?: string;
+  minStrength?: number;
+  limit?: number;
+}): Promise<{ intent: BuyerIntent[]; count: number; limit: number }> {
+  return apiFetch('/api/buyer-intent', params as Record<string, string | number | boolean | undefined>, 0);
+}
+
+export async function getDistributorMatches(params?: {
+  leadId?: string;
+  status?: string;
+  minScore?: number;
+  limit?: number;
+}): Promise<{ matches: DistributorMatch[]; count: number; limit: number }> {
+  return apiFetch('/api/distributor-matches', params as Record<string, string | number | boolean | undefined>, 0);
+}
