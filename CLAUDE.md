@@ -2,12 +2,14 @@
 
 ## Project Purpose
 Automated EU market opportunity discovery system for North Channel Logistics (NCL).
-Identifies US consumer brands with high potential for EU expansion via Northern Ireland (NI) routing.
+Identifies US consumer brands with high potential for EU expansion via Northern Ireland (NI) routing,
+and matches them with EU/UK distributors who are actively sourcing new products.
 
 ## Business Objective
 Transform NCL from a reactive consultancy into a proactive opportunity platform.
 The system discovers EU expansion opportunities before brands realise they exist,
-delivering data-backed strategies and pre-packaged solutions.
+delivering data-backed strategies and pre-packaged solutions. It also surfaces EU distributors
+actively sourcing in high-growth categories — making NCL the broker between US supply and EU buyer demand.
 
 ## The Four Strategic Questions
 1. What product categories are growing in specific EU markets?
@@ -51,88 +53,220 @@ The `humanReviewItems` table exists for workflow management, not as a gate on in
 |-------|-------|--------|
 | 1 — Foundation | DB schema, crawlers, API server, dashboard skeleton, normalization agents | **Complete** |
 | 2 — Intelligence | Trade flow agents, gap scoring, retailer agent, trend detection | **Complete** |
-| 3 — Scoring & Insights | Composite scoring engine, insight generation agent, brand fit scoring, trade show playbooks | **Complete** |
-| 4 — Lead Generation | Lead discovery scrapers, scoring, pitch angles, outreach, engagement, CRM export | **In progress** |
+| 3 — Scoring & Insights | Composite scoring engine, insight generation, brand fit scoring, trade show playbooks | **Complete** |
+| 4 — Lead Generation | Lead discovery, scoring, pitch angles, outreach, engagement, CRM export | **Complete** |
+| 5 — Distribution Intelligence | EU distributor network, buyer intent, brand–distributor matching, regulatory fit | **Complete** |
+| 6 — Production Hardening | Auth, data seeding, playwright-extra install, schema auto-migration, monitoring | **Not started** |
 
-## Macro To-Do: Full Functionality Checklist
+---
 
-The system fully answers the four strategic questions when all items below are done.
+## Agents Inventory
 
-### Phase 2 Completion (Intelligence layer) — ALL COMPLETE
-- [x] Complete `StatisticalTrendEngine` helper method stubs — done; six-tier taxonomy implemented
-- [x] Add API endpoints: `POST /api/agents/trends/run`, `GET /api/human-review`, `PATCH /api/human-review/:id`
-- [x] Dashboard: Trends page (list detected trends, confidence, validation status, approve/reject)
-- [x] Dashboard: Gap Scores leaderboard (category × country ranked by gap score)
-- [x] Dashboard: Retailer Insights page (by country, pattern type, confidence)
-- [x] Dashboard: Trade Analytics page (acceleration view, competitor share, saturation risk)
-- [x] Dashboard: Human Review Queue (approve/reject interface feeding back into pipeline)
-- [x] Wire `TrendScheduler.notifyDownstreamSystems()` to trigger gap scoring + downstream agents
-- [x] Wire CrossSignalCorrelationAgent into TrendScheduler downstream chain (runs after gap + retailer agents)
+### Data Collection
+| Agent | File | Status |
+|-------|------|--------|
+| TradeFlowIntelligenceAgent | `apps/api/src/agents/signals/trade-flow-agent.ts` | Complete |
+| TradeFlowAnalyticsEngine | `apps/api/src/agents/signals/trade-flow-analytics.ts` | Complete |
+| CrawlerScheduler | `apps/api/src/agents/crawlers/scheduler.ts` | Complete (Redis-gated) |
+| AmazonEUCrawler | `apps/api/src/agents/crawlers/amazon-eu-crawler.ts` | Complete |
+| GoogleTrendsCrawler | `apps/api/src/agents/crawlers/google-trends-crawler.ts` | Complete |
+| ShopifyBrandCrawler | `apps/api/src/agents/crawlers/shopify-brand-crawler.ts` | Complete |
+| TradeShowCrawler | `apps/api/src/agents/crawlers/trade-show-crawler.ts` | Complete |
+| CPGDirectoryCrawler | `apps/api/src/agents/crawlers/cpg-directory-crawler.ts` | Complete |
+| ProductHuntCrawler | `apps/api/src/agents/crawlers/product-hunt-crawler.ts` | Complete |
+| LinkedInCrawler | `apps/api/src/agents/crawlers/linkedin-crawler.ts` | Complete |
+| FaireCrawler | `apps/api/src/agents/crawlers/faire-crawler.ts` | Complete |
+| ThingTestingCrawler | `apps/api/src/agents/crawlers/thingtesting-crawler.ts` | Complete |
+| BulletinCrawler | `apps/api/src/agents/crawlers/bulletin-crawler.ts` | Complete |
+| IndustryDirectoryCrawler | `apps/api/src/agents/crawlers/industry-directory-crawler.ts` | Complete (Europages + Kompass) |
 
-### Phase 3 — Scoring & Insights
-- [x] **Composite Scoring Agent**: combine gap score + trade flow momentum + retailer signals into `opportunityScores` table
-  - Formula: `(CategoryScore × 0.40) + (BrandScore × 0.35) + (NIScore × 0.25)`
-  - Inputs: `gapScores`, `tradeFlowIntelligence` (unitValue), `niRoutingSignals`, `retailerInsights`, `trends`
-  - Corridor-level only (brandId = null); upserts on unique (category, country_code)
-  - Runs automatically as final step of TrendScheduler downstream chain
-- [x] **Brand Fit Scoring + NI Suitability Scoring**: `BrandFitScoringAgent` scores every brand against every active corridor
-  - Brand Fit factors: category alias match (1.0 exact / 0.7 substring), revenue tier (micro 0.3 / small 0.7 / mid 1.0 / large 0.5), Shopify signal; EU presence multiplier 0.6
-  - NI Suitability factors: avg NI signal strength (from niRoutingSignals), US-only distribution (1.0 if no EU presence), brand size fit
-  - Output: one `opportunityScores` row per (brandId, category, countryCode); partial unique index `opp_scores_brand_category_country_uniq`
-  - Runs automatically as Step D of TrendScheduler downstream chain (after CompositeScoringAgent); also `POST /api/agents/brand-fit/run`
-- [x] **Insight Generation Agent**: synthesise scores + signals into natural-language insights (`insights` table)
-  - Insight types: `opportunity_alert`, `market_brief`, `trade_show_playbook`, `weekly_report`
-  - Rule-based structured context + DeepSeek narrative paragraph; template fallback if API unavailable
-  - Deduplication: 7-day title-based cooldown per corridor/brand/show; weekly_report max once per ISO week
-  - Runs automatically as Step E of TrendScheduler chain (after BrandFitScoringAgent); also `POST /api/agents/insights/run`
-- [x] **Trade Show Playbook Generator**: per-show synthesis of exhibitors + brands + gap scores + trends → actionable narrative
-  - Exhibitor×Brand matching: case-insensitive name lookup into brands DB; pulls composite scores, revenue tier, EU presence, Shopify signal
-  - Per-exhibitor prospect cards with rule-based pitch angles (priority intercept / high-value / qualified lead / watch)
-  - Distributor coverage map per (category, countryCode) corridor: PostgreSQL `@>` array containment query; flags gaps (≤1 distributor)
-  - Structured output persisted to dedicated `trade_show_playbooks` table (upserted per show); DeepSeek 500–700w narrative + template fallback
-  - Standalone trigger: `POST /api/agents/trade-show-playbook/run`; not in TrendScheduler chain
-- [x] Dashboard: Opportunity Leaderboard (composite score ranked, filterable by category/country)
-  - `/opportunities` — corridor tab + brand tab (URL param `?view=brands`), filters for category/country/minComposite, trigger buttons for both scoring agents
-- [x] Dashboard: Insights feed (generated insight cards with evidence trail)
-  - `/insights-feed` — card feed with type/status filters, body preview + evidence summary indicator
+### Signal Processing
+| Agent | File | Status |
+|-------|------|--------|
+| DemandSupplyGapAgent | `apps/api/src/agents/signals/gap-agent.ts` | Complete |
+| RetailerBehaviorAgent | `apps/api/src/agents/signals/retailer-agent.ts` | Complete |
+| CrossSignalCorrelationAgent | `apps/api/src/agents/signals/cross-signal-correlation-agent.ts` | Complete |
+| StatisticalTrendEngine | `apps/api/src/agents/signals/trend-detection/statistical-trend-engine.ts` | Complete |
+| TrendValidator | `apps/api/src/agents/signals/trend-detection/trend-validator.ts` | Complete |
+| TrendScheduler | `apps/api/src/agents/signals/trend-detection/trend-scheduler.ts` | Complete |
+| RuleBasedStructuringAgent | `apps/api/src/agents/normalization/rule-based-structuring-agent.ts` | Complete |
+| StructuringAgent (AI) | `apps/api/src/agents/normalization/structuring-agent.ts` | Complete |
 
-### Phase 4 — Lead Generation Engine (In Progress)
-- [x] **Schema**: `leads`, `lead_campaigns`, `lead_briefings`, `lead_pipeline` tables + `lead_status`, `pipeline_stage` enums
-- [x] **BaseLeadCrawler**: abstract extension of BaseCrawler; extension point for all future lead scrapers
-- [x] **ProductHuntCrawler**: scrapes top D2C launches by NCL category from producthunt.com
-- [x] **LinkedInCrawler**: public company pages of known brands — headcount + EU hiring signals
-- [x] **CPGDirectoryCrawler**: cpgd.com + bevnet.com brand directories
-- [x] **LeadDiscoveryAgent**: aggregates + deduplicates leads from all 3 scrapers + scored brands + trade show exhibitors
-- [x] **LeadScoringAgent**: `leadQualityScore = compositeScore×0.40 + gapScore×0.25 + trendTierBonus×0.20 + contactCompleteness×0.15`
-- [x] **PitchAngleAgent**: rule-based angle selection (first_mover/unmet_demand/cost_optimisation/margin_expansion) + DeepSeek expansion
-- [x] **LeadOutreachAgent**: email gen + HTML briefing pack + `humanReviewItems` queue (type: `lead_outreach`)
-- [x] **LeadEngagementAgent**: Resend webhook handler; classifies reply sentiment, advances pipeline stage
-- [x] **CRMExportAgent**: weekly JSON export to `exports/crm-leads-<date>.json`; `crmExportedAt` tracking
-- [x] **API endpoints**: `GET/PATCH /api/leads`, `GET /api/campaigns`, `POST /api/campaigns/:id/send`, `GET /api/lead-pipeline`, `POST /api/agents/lead-*/run`, `POST /api/webhooks/resend`
-- [x] **Dashboard**: `/leads`, `/outreach-queue`, `/lead-pipeline` + nav links + homepage stats row
-- [x] **Weekly Master Scheduler**: `MasterSchedulerAgent` orchestrates full pipeline — trade flow → analytics → NI routing → crawlers → trend scheduler → lead-gen chain → trigger rules; `POST /api/agents/master-scheduler/run`
-- [x] **Real-time Alerts**: breakthrough-tier trends insert high-priority `humanReviewItems` rows (priority=10) in TrendScheduler step 5b
-- [x] **Monthly/Quarterly Report Generator**: `ReportGeneratorAgent` writes weekly digest + monthly market brief to `insights` table; `POST /api/agents/report-generator/run`
-- [x] **Trigger Rules Engine**: `TriggerRulesEngine` evaluates active `triggerRules` against `opportunity_scores`; fires alert insights + queues leads for outreach; `POST /api/agents/trigger-rules/run`
-- [x] Dashboard: Reports page (`/reports`) — lists weekly digests and monthly briefs with trigger buttons
+### Scoring & Insights
+| Agent | File | Status |
+|-------|------|--------|
+| CompositeScoringAgent | `apps/api/src/agents/signals/composite-scoring-agent.ts` | Complete |
+| BrandFitScoringAgent | `apps/api/src/agents/signals/brand-fit-scoring-agent.ts` | Complete |
+| InsightGenerationAgent | `apps/api/src/agents/signals/insight-generation-agent.ts` | Complete |
+| TradeShowPlaybookAgent | `apps/api/src/agents/signals/trade-show-playbook-agent.ts` | Complete |
+| NIRoutingAgent | `apps/api/src/agents/signals/ni-routing-agent.ts` | Complete |
 
-### Infrastructure
-- [x] **Resolve Redis blocker**: Railway Redis 7 resolves the Windows dev blocker (local Redis 3.0.504 is dev-only). Production uses Railway Redis plugin which satisfies BullMQ's Redis 5+ requirement.
-- [x] **Deploy to Railway**: `Dockerfile` (API) + `apps/dashboard/Dockerfile` (dashboard) + `railway.toml` per service. See `DEPLOY.md` for step-by-step guide.
-  - API: builds from repo root, runs `runMigrations()` idempotently on startup before serving
-  - Dashboard: Next.js standalone build, reads `API_URL` + `API_SECRET_KEY` env vars
-  - DB: Railway Postgres plugin with pgvector extension; schema applied automatically
-  - Redis: Railway Redis 7 plugin enables full BullMQ scheduler in production
-- [x] **Production migration runner**: `apps/api/src/db/migrate.ts` — comprehensive idempotent DDL (all tables, indexes, enums, pgvector) runs on every startup via `runMigrations()` called from `index.ts`
-- [x] **Health check with DB ping**: `/health` now verifies DB connectivity; returns 503 if DB unreachable so Railway can restart the container
-- [x] **Scoring weights config**: `apps/api/src/config/scoring-weights.json` — exists with tier boundaries, aliases, trade show keywords
+### Lead Generation
+| Agent | File | Status |
+|-------|------|--------|
+| BaseLeadCrawler | `apps/api/src/agents/crawlers/base-lead-crawler.ts` | Complete |
+| LeadDiscoveryAgent | `apps/api/src/agents/lead-gen/lead-discovery-agent.ts` | Complete |
+| LeadScoringAgent | `apps/api/src/agents/lead-gen/lead-scoring-agent.ts` | Complete |
+| PitchAngleAgent | `apps/api/src/agents/lead-gen/pitch-angle-agent.ts` | Complete |
+| LeadOutreachAgent | `apps/api/src/agents/lead-gen/lead-outreach-agent.ts` | Complete |
+| LeadEngagementAgent | `apps/api/src/agents/lead-gen/lead-engagement-agent.ts` | Complete |
+| CRMExportAgent | `apps/api/src/agents/lead-gen/crm-export-agent.ts` | Complete |
+
+### Distribution Intelligence
+| Agent | File | Status |
+|-------|------|--------|
+| DistributorDiscoveryAgent | `apps/api/src/agents/distributor/distributor-discovery-agent.ts` | Complete |
+| BuyerIntentAgent | `apps/api/src/agents/distributor/buyer-intent-agent.ts` | Complete |
+| DistributorScoringAgent | `apps/api/src/agents/distributor/distributor-scoring-agent.ts` | Complete |
+| DistributorMatchingAgent | `apps/api/src/agents/distributor/distributor-matching-agent.ts` | Complete |
+| RegulatoryFitAgent | `apps/api/src/agents/distributor/regulatory-fit-agent.ts` | Complete |
+| CompetitorIntelligenceAgent | — | **Not implemented** (deferred indefinitely) |
+
+### Orchestration & Reporting
+| Agent | File | Status |
+|-------|------|--------|
+| MasterSchedulerAgent | `apps/api/src/agents/master-scheduler.ts` | Complete (23-step pipeline) |
+| TriggerRulesEngine | `apps/api/src/agents/trigger-rules-engine.ts` | Complete |
+| ReportGeneratorAgent | `apps/api/src/agents/signals/report-generator-agent.ts` | Complete |
+
+---
+
+## Master Scheduler Pipeline (23 Steps)
+
+Triggered weekly via `POST /api/agents/master-scheduler/run` or cron.
+
+| Step | Name | Agent |
+|------|------|-------|
+| 1 | trade-flow | TradeFlowIntelligenceAgent |
+| 2 | trade-analytics | TradeFlowAnalyticsEngine |
+| 3 | ni-routing | NIRoutingAgent |
+| 4–11 | crawl-* (8 crawlers) | Shopify, Google Trends, Amazon EU, Trade Shows, CPG Directory, Faire, ThingTesting, Bulletin |
+| 12 | trend-scheduler | TrendDetectionScheduler (internally: trend→gap→retailer→correlation→composite→brand-fit→insights) |
+| 13 | lead-discovery | LeadDiscoveryAgent |
+| 14 | lead-scoring | LeadScoringAgent |
+| 15 | crawl-industry-directory | IndustryDirectoryCrawler |
+| 16 | distributor-discovery | DistributorDiscoveryAgent |
+| 17 | buyer-intent | BuyerIntentAgent |
+| 18 | distributor-scoring | DistributorScoringAgent |
+| 19 | regulatory-fit | RegulatoryFitAgent |
+| 20 | pitch-angles | PitchAngleAgent |
+| 21 | distributor-matching | DistributorMatchingAgent |
+| 22 | crm-export | CRMExportAgent |
+| 23 | trigger-rules | TriggerRulesEngine |
+
+---
+
+## API Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | /health | Liveness + DB connectivity check (503 if DB down) |
+| GET | /api/brands | List brands (filterable by EU presence, category) |
+| GET | /api/brands/:id | Brand detail with scores, lead record, recent signals |
+| GET | /api/brand-scores | Brand opportunity scores (joined with brand name) |
+| GET | /api/signals | EU market signals (country/category/source/date filters) |
+| GET | /api/trends | Detected trends (tier, growth rate, status filters) |
+| GET | /api/gaps | Demand/supply gap scores |
+| GET | /api/retailer-insights | Retailer behaviour patterns |
+| GET | /api/trade-flows | Annual US↔EU trade intelligence |
+| GET | /api/trade-analytics | Multi-layer analytics (OLS, CAGR, acceleration, shares) |
+| GET | /api/ni-routing-signals | NI routing intelligence signals |
+| GET | /api/opportunity-correlations | Cross-signal correlation bundles |
+| GET | /api/opportunity-scores | Composite corridor scores (brandId=null) |
+| GET | /api/insights | Generated insights (type/status filters) |
+| GET | /api/trade-shows | Upcoming trade shows (optional exhibitor detail) |
+| GET | /api/trade-show-playbooks | Structured playbooks per show |
+| GET | /api/crawl-jobs | Crawler job history |
+| GET | /api/human-review | Human review queue (type/status filters) |
+| PATCH | /api/human-review/:id | Approve or reject a review item |
+| GET | /api/leads | Lead discovery results (status/source/score/category filters) |
+| GET | /api/leads/:id | Lead detail with campaigns and pipeline |
+| PATCH | /api/leads/:id | Update lead status, assignment, notes |
+| GET | /api/campaigns | Lead outreach campaigns |
+| POST | /api/campaigns/:id/send | Send approved campaign via Resend |
+| GET | /api/lead-pipeline | Pipeline stage summary with estimated values |
+| GET | /api/distributors | EU distributor network (country/category/score filters) |
+| GET | /api/buyer-intent | Distributor buying intent signals |
+| GET | /api/distributor-matches | Brand–distributor match table |
+| POST | /api/crawlers/:type/trigger | Trigger a specific crawler |
+| POST | /api/agents/trade-flow/run | TradeFlowIntelligenceAgent |
+| POST | /api/agents/trade-analytics/run | TradeFlowAnalyticsEngine |
+| POST | /api/agents/ni-routing/run | NIRoutingAgent |
+| POST | /api/agents/gap/run | DemandSupplyGapAgent |
+| POST | /api/agents/retailer/run | RetailerBehaviorAgent |
+| POST | /api/agents/correlation/run | CrossSignalCorrelationAgent |
+| POST | /api/agents/trends/run | TrendDetectionScheduler (full chain) |
+| POST | /api/agents/composite-scoring/run | CompositeScoringAgent |
+| POST | /api/agents/brand-fit/run | BrandFitScoringAgent |
+| POST | /api/agents/insights/run | InsightGenerationAgent |
+| POST | /api/agents/trade-show-playbook/run | TradeShowPlaybookAgent |
+| POST | /api/agents/lead-discovery/run | LeadDiscoveryAgent |
+| POST | /api/agents/lead-scoring/run | LeadScoringAgent |
+| POST | /api/agents/pitch-angles/run | PitchAngleAgent |
+| POST | /api/agents/lead-outreach/run | LeadOutreachAgent |
+| POST | /api/agents/crm-export/run | CRMExportAgent |
+| POST | /api/agents/distributor-discovery/run | DistributorDiscoveryAgent |
+| POST | /api/agents/buyer-intent/run | BuyerIntentAgent |
+| POST | /api/agents/distributor-scoring/run | DistributorScoringAgent |
+| POST | /api/agents/distributor-matching/run | DistributorMatchingAgent |
+| POST | /api/agents/regulatory-fit/run | RegulatoryFitAgent |
+| POST | /api/agents/report-generator/run | ReportGeneratorAgent |
+| POST | /api/agents/trigger-rules/run | TriggerRulesEngine |
+| POST | /api/agents/master-scheduler/run | Full 23-step pipeline |
+| POST | /api/webhooks/resend | Resend email engagement events |
+
+---
+
+## Dashboard Pages (21 pages)
+
+| Route | Description |
+|-------|-------------|
+| / | Overview with pipeline stats |
+| /brands | Brand catalog with EU presence filter |
+| /brands/[id] | Brand detail page |
+| /signals | EU market signals feed |
+| /trends | Trend detection results with tier badges |
+| /gaps | Gap score leaderboard (category × country) |
+| /retailer-insights | Retailer behaviour patterns |
+| /trade-analytics | Trade flow acceleration + market share |
+| /human-review | Approve/reject queue |
+| /trade-shows | Upcoming shows inventory |
+| /opportunities | Corridor + brand opportunity leaderboard |
+| /insights-feed | Generated market briefs and alerts |
+| /crawl-jobs | Crawler job history + live poller |
+| /leads | Lead discovery results |
+| /outreach-queue | Pending outreach campaigns |
+| /lead-pipeline | Sales pipeline stages |
+| /distributors | EU distributor network |
+| /buyer-intent | Distributor buying intent signals |
+| /distributor-matches | Brand–distributor match table |
+| /reports | Weekly digests + monthly briefs |
+
+---
+
+## Database Schema (35 tables)
+
+Core: `brands`, `products`, `euMarketSignals`, `agentOutputs`
+Trade data: `tradeFlowIntelligence`, `tradeFlowMonthly`, `tradeFlowData`, `competitorMarketShare`, `tradeFlowAnalytics`
+Signals: `gapScores`, `retailerInsights`, `retailerActivities`, `niRoutingSignals`, `opportunityCorrelations`, `opportunityScores`
+Trends: `trends`, `humanReviewItems`
+Trade shows: `tradeShows`, `tradeShowExhibitors`, `tradeShowPlaybooks`
+Insights: `insights`, `triggerRules`
+Leads: `leads`, `leadCampaigns`, `leadBriefings`, `leadPipeline`
+Distributors: `distributors`, `distributorBuyingIntent`, `distributorBrandMatches`, `regulatoryFlags`
+Ops: `crawlJobs`
+
+---
 
 ## Key Design Decisions
 - NI Routing: Northern Ireland dual-market position is a core differentiator; NI Suitability is one of three scoring dimensions
 - Composite Score: `(CategoryScore × 0.40) + (BrandScore × 0.35) + (NIScore × 0.25)`
+- Lead score formula: `compositeScore×0.35 + gapScore×0.22 + trendBonus×0.18 + contactBonus×0.12 + distributorBonus(max 15) - regulatoryPenalty(0/8/20)`
+- Distributor match score: `categoryOverlap×0.50 + maxIntentStrength×0.35 + distributorScore/100×0.15`
 - Email: Resend (not SendGrid)
-- CRM: Lightweight custom layer (Phase 4); HubSpot integration optional later
+- CRM: Lightweight custom layer; HubSpot integration optional later
 - Deployment: Railway
+- DeepSeek API: used for pitch angle expansion, insight narratives, trade show playbooks (template fallback if API unavailable)
 
 ## Opportunity Tier Taxonomy
 | Tier | Growth Rate | Engagement Strategy |
@@ -158,117 +292,52 @@ DE (Germany), FR (France), NL (Netherlands), GB (United Kingdom), ES (Spain), IT
 ```
 npm run dev:api          — Start API dev server (port 3001)
 npm run dev:dashboard    — Start dashboard dev server (port 3000)
-npm run db:push          — Push schema changes to DB (dev)
+npm run db:push          — Push schema changes to DB (dev only — must be run manually)
 npm run db:generate      — Generate Drizzle migration files
 npm run db:studio        — Open Drizzle Studio UI
 docker-compose up postgres redis  — Start local DB + Redis
+npx vitest run           — Run 55 unit/integration tests (from apps/api)
 ```
 
 ## Database Notes
 - pgvector extension must be enabled before pushing schema
 - Run in psql: `CREATE EXTENSION IF NOT EXISTS vector;`
 - All tables in `apps/api/src/db/schema.ts`
-- `description_embedding vector(1536)` on products table added via raw SQL after extension enabled
+- `apps/api/src/db/migrate.ts` enables uuid-ossp + pgvector extensions on startup — it does NOT create tables
+- **Tables must be created via `npm run db:push`** before first run (not automatic on Railway deploy)
 - Three analytics tables applied via script (not drizzle-kit) to avoid --force prompt interception:
   - `trade_flow_monthly`      — monthly Comtrade data (YYYYMM, Jan 2022–Dec 2023)
   - `competitor_market_share` — EU country imports from WORLD / US / CN / GB per HS chapter
   - `trade_flow_analytics`    — computed multi-layer analytics (OLS, CAGR, acceleration, shares)
-- `opportunity_correlations` table is defined in Drizzle schema and pushed normally via `db:push`
-  - Unique constraint on `(category, country_code)` — upserted on each agent run
 - To apply analytics tables: `node --env-file=apps/api/.env scripts/apply-analytics-tables.mjs`
-- drizzle-kit `db:push --force` is intercepted by npm; use the script above for analytics tables
+- Distribution tables (new): `node --env-file=apps/api/.env scripts/add-distribution-tables.mjs`
+- `opportunity_correlations` table: upserted on each agent run; unique constraint on `(category, country_code)`
 
-## Agents Inventory
+## Known Production Gaps (Phase 6)
 
-### Data Collection (Phase 1–2, Complete)
-| Agent | File | Status |
-|-------|------|--------|
-| TradeFlowIntelligenceAgent | `apps/api/src/agents/signals/trade-flow-agent.ts` | Complete |
-| TradeFlowAnalyticsEngine | `apps/api/src/agents/signals/trade-flow-analytics.ts` | Complete |
-| CrawlerScheduler | `apps/api/src/agents/crawlers/scheduler.ts` | Complete (Redis-gated) |
-| AmazonEUCrawler | `apps/api/src/agents/crawlers/amazon-eu-crawler.ts` | Complete |
-| GoogleTrendsCrawler | `apps/api/src/agents/crawlers/google-trends-crawler.ts` | Complete |
-| ShopifyBrandCrawler | `apps/api/src/agents/crawlers/shopify-brand-crawler.ts` | Complete |
-| TradeShowCrawler | `apps/api/src/agents/crawlers/trade-show-crawler.ts` | Complete |
+These are the gaps between current state and production-ready software:
 
-### Signal Processing (Phase 2, Mostly Complete)
-| Agent | File | Status |
-|-------|------|--------|
-| DemandSupplyGapAgent | `apps/api/src/agents/signals/gap-agent.ts` | Complete |
-| RetailerBehaviorAgent | `apps/api/src/agents/signals/retailer-agent.ts` | Complete |
-| CrossSignalCorrelationAgent | `apps/api/src/agents/signals/cross-signal-correlation-agent.ts` | Complete |
-| StatisticalTrendEngine | `apps/api/src/agents/signals/trend-detection/statistical-trend-engine.ts` | Complete |
-| TrendValidator | `apps/api/src/agents/signals/trend-detection/trend-validator.ts` | Complete |
-| TrendScheduler | `apps/api/src/agents/signals/trend-detection/trend-scheduler.ts` | Complete |
-| RuleBasedStructuringAgent | `apps/api/src/agents/normalization/rule-based-structuring-agent.ts` | Complete |
-| StructuringAgent (AI) | `apps/api/src/agents/normalization/structuring-agent.ts` | Complete |
+1. **`playwright-extra` not installed** — All Playwright crawlers import `playwright-extra` and `puppeteer-extra-plugin-stealth`, neither of which is in package.json. TypeScript compiles (ambient declarations in `src/types/vendor.d.ts`), but at runtime the imports will crash. Install: `npm install playwright-extra puppeteer-extra-plugin-stealth` in `apps/api`.
 
-### Phase 3 (In Progress)
-| Agent | File | Status |
-|-------|------|--------|
-| CompositeScoringAgent | `apps/api/src/agents/signals/composite-scoring-agent.ts` | Complete |
-| BrandFitScoringAgent | `apps/api/src/agents/signals/brand-fit-scoring-agent.ts` | Complete |
-| InsightGenerationAgent | `apps/api/src/agents/signals/insight-generation-agent.ts` | Complete |
-| TradeShowPlaybookAgent | `apps/api/src/agents/signals/trade-show-playbook-agent.ts` | Complete |
+2. **No dashboard authentication** — The dashboard (`apps/dashboard`) has zero auth. Anyone with the URL can view all data and trigger agents. Add NextAuth.js or a simple password middleware before exposing to any network.
 
-### Phase 4 — Lead Generation (In Progress)
-| Agent | File | Status |
-|-------|------|--------|
-| BaseLeadCrawler | `apps/api/src/agents/crawlers/base-lead-crawler.ts` | Complete |
-| ProductHuntCrawler | `apps/api/src/agents/crawlers/product-hunt-crawler.ts` | Complete |
-| LinkedInCrawler | `apps/api/src/agents/crawlers/linkedin-crawler.ts` | Complete |
-| CPGDirectoryCrawler | `apps/api/src/agents/crawlers/cpg-directory-crawler.ts` | Complete |
-| LeadDiscoveryAgent | `apps/api/src/agents/lead-gen/lead-discovery-agent.ts` | Complete |
-| LeadScoringAgent | `apps/api/src/agents/lead-gen/lead-scoring-agent.ts` | Complete |
-| PitchAngleAgent | `apps/api/src/agents/lead-gen/pitch-angle-agent.ts` | Complete |
-| LeadOutreachAgent | `apps/api/src/agents/lead-gen/lead-outreach-agent.ts` | Complete |
-| LeadEngagementAgent | `apps/api/src/agents/lead-gen/lead-engagement-agent.ts` | Complete |
-| CRMExportAgent | `apps/api/src/agents/lead-gen/crm-export-agent.ts` | Complete |
+3. **Schema must be applied manually on first Railway deploy** — `runMigrations()` only creates PostgreSQL extensions. Tables are created via `npm run db:push`, which must be run once from your dev machine pointed at the Railway `DATABASE_URL`: `DATABASE_URL=<railway-url> npm run db:push --workspace=apps/api`. Re-run after any schema changes. Do not try to run `db:push` from inside the Docker container — the image only contains `dist/`, not the TypeScript source that `drizzle-kit` requires.
 
-### Phase C — Orchestration & Reporting (Complete)
-| Agent | File | Status |
-|-------|------|--------|
-| MasterSchedulerAgent | `apps/api/src/agents/master-scheduler.ts` | Complete |
-| TriggerRulesEngine | `apps/api/src/agents/trigger-rules-engine.ts` | Complete |
-| ReportGeneratorAgent | `apps/api/src/agents/signals/report-generator-agent.ts` | Complete |
+4. **CRM export writes to local filesystem** — `CRMExportAgent` writes to `exports/crm-leads-<date>.json`. In Railway containers, the filesystem is ephemeral — files disappear on restart/redeploy. Move to S3, Railway Volumes, or email the export via Resend.
 
-## API Endpoints
+5. **No real brand seed data** — The pipeline generates scores against brands in the `brands` table, but no seed data is loaded. Without real brands (Shopify crawl results), the pipeline produces empty outputs on a fresh deploy. Need either a seed script with known US CPG brands or a first-run Shopify crawl.
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | /health | Liveness check |
-| GET | /api/brands | List brands (filterable) |
-| GET | /api/signals | EU market signals |
-| GET | /api/trends | Detected trends |
-| GET | /api/gaps | Demand/supply gap scores |
-| GET | /api/retailer-insights | Retailer behaviour patterns |
-| GET | /api/trade-flows | Annual US↔EU trade intelligence |
-| GET | /api/trade-analytics | Multi-layer analytics (OLS, CAGR, acceleration, shares) |
-| GET | /api/trade-shows | Upcoming trade shows |
-| GET | /api/crawl-jobs | Crawler job status |
-| POST | /api/agents/trade-flow/run | Trigger TradeFlowIntelligenceAgent |
-| POST | /api/agents/trade-analytics/run | Trigger TradeFlowAnalyticsEngine |
-| POST | /api/agents/gap/run | Trigger DemandSupplyGapAgent |
-| POST | /api/agents/retailer/run | Trigger RetailerBehaviorAgent |
-| GET | /api/ni-routing-signals | NI routing intelligence signals |
-| POST | /api/agents/ni-routing/run | Trigger NIRoutingAgent |
-| GET | /api/opportunity-correlations | Cross-signal correlation bundles (lead-lag, trade shows, distributor gaps) |
-| POST | /api/agents/correlation/run | Trigger CrossSignalCorrelationAgent |
-| POST | /api/agents/trends/run | Trigger TrendDetectionScheduler |
-| GET | /api/human-review | Human review queue (filterable by type/status) |
-| PATCH | /api/human-review/:id | Approve or reject a review item |
-| POST | /api/crawlers/:type/trigger | Trigger a specific crawler |
+6. **Trade data is public preview** — UN Comtrade's free preview has aggressive rate limits and gaps in coverage. A paid Comtrade+ API key would significantly improve data quality and reduce 429 errors.
 
-| GET | /api/opportunity-scores | Composite corridor scores (brandId=null, ordered by compositeScore desc) |
-| POST | /api/agents/composite-scoring/run | Trigger CompositeScoringAgent |
-| POST | /api/agents/brand-fit/run | Trigger BrandFitScoringAgent |
-| GET | /api/insights | Generated insights (filterable by type/status) |
-| POST | /api/agents/insights/run | Trigger InsightGenerationAgent |
-| GET | /api/brand-scores | Brand opportunity scores with brand name, joined; filterable by category/country/minComposite |
-| GET | /api/trade-show-playbooks | Structured trade show playbooks (filterable by status) |
-| POST | /api/agents/trade-show-playbook/run | Trigger TradeShowPlaybookAgent |
+7. **No structured logging/monitoring** — The API logs via `pino` (JSON to stdout) which Railway captures, but there's no alerting on agent failures, no Sentry-style error tracking, and no dashboard for pipeline health (failed steps, empty runs, data staleness).
 
-*Endpoints to add: `/api/outreach`*
+8. **`CompetitorIntelligenceAgent` not implemented** — This agent was planned to map which distributors carry which US brands. Deferred indefinitely; the rest of the distributor pipeline works without it.
+
+9. **Webhook secret not enforced in dev** — `RESEND_WEBHOOK_SECRET` is optional; when absent the webhook endpoint accepts all payloads without signature verification. Fine for dev, must be set in production.
+
+10. **`outreachCampaigns` table is deprecated** — The schema still contains `outreachCampaigns` (distinct from `leadCampaigns`). The former is unused; should be dropped in a migration to reduce confusion.
+
+---
 
 ## Trade Data Sources
 - **UN Comtrade+ public preview** (no auth): `https://comtradeapi.un.org/public/v1/preview/C/A/HS`

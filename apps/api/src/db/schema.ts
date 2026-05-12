@@ -181,19 +181,6 @@ export const insights = pgTable('insights', {
 });
 
 // @deprecated — use lead_campaigns. Retained for schema compatibility.
-export const outreachCampaigns = pgTable('outreach_campaigns', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  brandId: uuid('brand_id').notNull().references(() => brands.id, { onDelete: 'cascade' }),
-  insightId: uuid('insight_id').references(() => insights.id, { onDelete: 'set null' }),
-  campaignType: campaignTypeEnum('campaign_type').notNull(),
-  subject: text('subject').notNull(),
-  body: text('body').notNull(),
-  status: campaignStatusEnum('status').notNull().default('queued'),
-  sentAt: timestamp('sent_at'),
-  openedAt: timestamp('opened_at'),
-  repliedAt: timestamp('replied_at'),
-});
-
 // ---------------------------------------------------------------------------
 // Lead Generation Engine Tables (Phase 4)
 // ---------------------------------------------------------------------------
@@ -223,6 +210,7 @@ export const leads = pgTable('leads', {
   employeeGrowthSignal:  text('employee_growth_signal'),
   regulatoryRiskLevel:   text('regulatory_risk_level'),          // null | 'low' | 'medium' | 'high'
   distributorMatchCount: integer('distributor_match_count').default(0),
+  subCategory:           text('sub_category'),                   // e.g. 'functional_beverages', 'collagen_supplements'
   status:                leadStatusEnum('status').notNull().default('new'),
   assignedTo:            text('assigned_to'),
   notes:                 text('notes'),
@@ -740,10 +728,12 @@ export const distributorBrandMatches = pgTable('distributor_brand_matches', {
   distributorId: uuid('distributor_id').notNull().references(() => distributors.id, { onDelete: 'cascade' }),
   leadId:        uuid('lead_id').references(() => leads.id, { onDelete: 'set null' }),
   brandId:       uuid('brand_id').references(() => brands.id, { onDelete: 'set null' }),
-  matchScore:    real('match_score').default(0),
-  matchReasons:  jsonb('match_reasons'),               // ['category_alignment', 'country_match', 'intent_signal']
-  status:        text('status').notNull().default('suggested'), // 'suggested'|'pitched'|'connected'|'rejected'
-  createdAt:     timestamp('created_at').notNull().defaultNow(),
+  matchScore:           real('match_score').default(0),
+  matchReasons:         jsonb('match_reasons'),               // ['category_alignment', 'country_match', 'intent_signal']
+  status:               text('status').notNull().default('suggested'), // 'suggested'|'pitched'|'connected'|'rejected'
+  competitorProximity:  text('competitor_proximity'),          // null | 'exact' | 'adjacent'
+  competitorCount:      integer('competitor_count').default(0),
+  createdAt:            timestamp('created_at').notNull().defaultNow(),
 }, (t) => ({
   matchScoreIdx:  index('dbm_match_score_idx').on(t.matchScore),
   leadIdx:        index('dbm_lead_idx').on(t.leadId),
@@ -764,11 +754,26 @@ export const regulatoryFlags = pgTable('regulatory_flags', {
   riskIdx:     index('reg_flags_risk_idx').on(t.riskLevel, t.category),
 }));
 
+export const distributorBrandPortfolio = pgTable('distributor_brand_portfolio', {
+  id:              uuid('id').primaryKey().defaultRandom(),
+  distributorId:   uuid('distributor_id').notNull().references(() => distributors.id, { onDelete: 'cascade' }),
+  brandName:       text('brand_name').notNull(),
+  brandWebsiteUrl: text('brand_website_url'),
+  categoryHint:    text('category_hint'),       // top-level NCL category
+  subCategoryHint: text('sub_category_hint'),   // e.g. 'functional_beverages'
+  source:          text('source').notNull(),     // 'brand_website' | 'distributor_website' | 'faire' | 'bulletin'
+  confidence:      real('confidence').default(0.5),
+  detectedAt:      timestamp('detected_at').notNull().defaultNow(),
+}, (t) => ({
+  uniq:          uniqueIndex('dbp_distributor_brand_uniq').on(t.distributorId, t.brandName),
+  distIdx:       index('dbp_distributor_idx').on(t.distributorId),
+  subCatIdx:     index('dbp_sub_category_idx').on(t.subCategoryHint),
+}));
+
 // Relations
 export const brandsRelations = relations(brands, ({ many }) => ({
   products: many(products),
   opportunityScores: many(opportunityScores),
-  outreachCampaigns: many(outreachCampaigns),
 }));
 export const productsRelations = relations(products, ({ one }) => ({
   brand: one(brands, { fields: [products.brandId], references: [brands.id] }),
@@ -786,10 +791,7 @@ export const tradeShowPlaybooksRelations = relations(tradeShowPlaybooks, ({ one 
 export const opportunityScoresRelations = relations(opportunityScores, ({ one }) => ({
   brand: one(brands, { fields: [opportunityScores.brandId], references: [brands.id] }),
 }));
-export const outreachCampaignsRelations = relations(outreachCampaigns, ({ one }) => ({
-  brand: one(brands, { fields: [outreachCampaigns.brandId], references: [brands.id] }),
-  insight: one(insights, { fields: [outreachCampaigns.insightId], references: [insights.id] }),
-}));
+
 export const leadsRelations = relations(leads, ({ one, many }) => ({
   brand: one(brands, { fields: [leads.brandId], references: [brands.id] }),
   campaigns: many(leadCampaigns),

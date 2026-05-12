@@ -151,14 +151,21 @@ export class MasterSchedulerAgent {
       return new RegulatoryFitAgent().run();
     });
 
-    await this.runStep(steps, 'pitch-angles', async () => {
-      const { PitchAngleAgent } = await import('./lead-gen/pitch-angle-agent.js');
-      return new PitchAngleAgent().run();
-    });
-
     await this.runStep(steps, 'distributor-matching', async () => {
       const { DistributorMatchingAgent } = await import('./distributor/distributor-matching-agent.js');
       return new DistributorMatchingAgent().run();
+    });
+
+    await this.runStep(steps, 'competitor-intel', async () => {
+      const { CompetitorIntelligenceAgent } = await import('./distributor/competitor-intel-agent.js');
+      return new CompetitorIntelligenceAgent().run();
+    });
+
+    // pitch-angles runs after distributor-matching + competitor-intel so it has
+    // full competitor proximity context and distributor pull data available
+    await this.runStep(steps, 'pitch-angles', async () => {
+      const { PitchAngleAgent } = await import('./lead-gen/pitch-angle-agent.js');
+      return new PitchAngleAgent().run();
     });
 
     await this.runStep(steps, 'crm-export', async () => {

@@ -1,4 +1,5 @@
-import { chromium, type Browser, type BrowserContext, type Page } from 'playwright-extra';
+import { chromium } from 'playwright-extra';
+import type { Browser, BrowserContext, Page } from 'playwright';
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import * as cheerio from 'cheerio';
 import { db } from '@/db/index.js';

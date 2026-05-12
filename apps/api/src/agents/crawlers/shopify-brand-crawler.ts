@@ -1,6 +1,6 @@
-import { chromium, type Browser, type Page, type BrowserContext } from 'playwright-extra';
-import type { Route } from 'playwright';
+import { chromium } from 'playwright-extra';
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
+import type { Browser, BrowserContext, Page, Route } from 'playwright';
 import * as cheerio from 'cheerio';
 import { db } from '@/db/index.js';
 import { brands, products } from '@/db/schema.js';
@@ -263,6 +263,56 @@ const SEED_BRANDS: SeedEntry[] = [
     expectedCategories: ['Bedding', 'Bath', 'Home Textiles'],
     segment: 'home-goods',
   },
+
+  // ── Extended Toys (8) ──────────────────────────────────────────────────────
+  { domain: 'magictracks.com',    expectedCategories: ['Toy Vehicles', 'Track Sets'], segment: 'toys' },
+  { domain: 'squishable.com',     expectedCategories: ['Plush Toys', 'Stuffed Animals'], segment: 'toys' },
+  { domain: 'hearthsong.com',     expectedCategories: ['Outdoor Toys', 'Imaginative Play'], segment: 'toys' },
+  { domain: 'kiwico.com',         expectedCategories: ['STEM Kits', 'Subscription Boxes', 'Educational'], segment: 'toys' },
+  { domain: 'lovevery.com',       expectedCategories: ['Baby Toys', 'Developmental Toys', 'Educational'], segment: 'toys' },
+  { domain: 'osmo.com',           expectedCategories: ['Educational Toys', 'STEM', 'Digital Play'], segment: 'toys' },
+  { domain: 'piklerco.com',       expectedCategories: ['Wooden Toys', 'Montessori', 'Climbing Toys'], segment: 'toys' },
+  { domain: 'makewonder.com',     expectedCategories: ['Coding Toys', 'STEM Robots', 'Educational'], segment: 'toys' },
+
+  // ── Extended Food & Beverage (10) ──────────────────────────────────────────
+  { domain: 'dailyharvest.com',   expectedCategories: ['Frozen Foods', 'Plant-Based', 'Meal Delivery'], segment: 'cpg' },
+  { domain: 'olipopdrinks.com',   expectedCategories: ['Functional Beverages', 'Soda', 'Prebiotic'], segment: 'cpg' },
+  { domain: 'drinkpoppi.com',     expectedCategories: ['Functional Beverages', 'Soda', 'Apple Cider Vinegar'], segment: 'cpg' },
+  { domain: 'kitehill.com',       expectedCategories: ['Plant-Based Dairy', 'Vegan', 'Nut-Based Foods'], segment: 'cpg' },
+  { domain: 'miyokos.com',        expectedCategories: ['Vegan Cheese', 'Plant-Based Dairy', 'Artisan Foods'], segment: 'cpg' },
+  { domain: 'banzafoods.com',     expectedCategories: ['Pasta', 'Chickpea Foods', 'Better-for-You'], segment: 'cpg' },
+  { domain: 'birchbenders.com',   expectedCategories: ['Pancake Mixes', 'Baking Mixes', 'Keto'], segment: 'cpg' },
+  { domain: 'simplyprotein.com',  expectedCategories: ['Protein Bars', 'Snacks', 'Clean Label'], segment: 'cpg' },
+  { domain: 'rxbar.com',          expectedCategories: ['Protein Bars', 'Snacks', 'Whole Food'], segment: 'cpg' },
+  { domain: 'kindsnacks.com',     expectedCategories: ['Snack Bars', 'Nuts', 'Better-for-You'], segment: 'cpg' },
+
+  // ── Extended Supplements & Wellness (8) ────────────────────────────────────
+  { domain: 'ritual.com',         expectedCategories: ['Vitamins', 'Supplements', 'Women\'s Health'], segment: 'wellness' },
+  { domain: 'drinkag1.com',       expectedCategories: ['Greens Powder', 'Supplements', 'Wellness'], segment: 'wellness' },
+  { domain: 'pendulumlife.com',   expectedCategories: ['Probiotics', 'Gut Health', 'Supplements'], segment: 'wellness' },
+  { domain: 'neurohacker.com',    expectedCategories: ['Nootropics', 'Cognitive Health', 'Supplements'], segment: 'wellness' },
+  { domain: 'hvmn.com',           expectedCategories: ['Ketones', 'Performance Supplements', 'Biohacking'], segment: 'wellness' },
+  { domain: 'thesis.com',         expectedCategories: ['Nootropics', 'Personalized Supplements'], segment: 'wellness' },
+  { domain: 'sunwarrior.com',     expectedCategories: ['Plant Protein', 'Supplements', 'Vegan Wellness'], segment: 'wellness' },
+  { domain: 'gardenoflife.com',   expectedCategories: ['Organic Supplements', 'Probiotics', 'Vitamins'], segment: 'wellness' },
+
+  // ── Extended Cosmetics & Personal Care (8) ─────────────────────────────────
+  { domain: 'iliabeauty.com',     expectedCategories: ['Clean Beauty', 'Makeup', 'Skincare'], segment: 'wellness' },
+  { domain: 'goop.com',           expectedCategories: ['Luxury Wellness', 'Clean Beauty', 'Skincare'], segment: 'wellness' },
+  { domain: 'indielee.com',       expectedCategories: ['Clean Skincare', 'Organic Beauty'], segment: 'wellness' },
+  { domain: 'briogeohair.com',    expectedCategories: ['Natural Haircare', 'Clean Beauty'], segment: 'wellness' },
+  { domain: 'honest.com',         expectedCategories: ['Natural Baby Products', 'Clean Beauty', 'Personal Care'], segment: 'wellness' },
+  { domain: 'koparibeauty.com',   expectedCategories: ['Coconut Beauty', 'Skincare', 'Natural'], segment: 'wellness' },
+  { domain: 'versed.com',         expectedCategories: ['Affordable Clean Skincare', 'Drugstore Beauty'], segment: 'wellness' },
+  { domain: 'tatcha.com',         expectedCategories: ['Japanese Skincare', 'Luxury Beauty', 'Skincare'], segment: 'wellness' },
+
+  // ── Extended Home & Lifestyle (6) ──────────────────────────────────────────
+  { domain: 'brooklinen.com',     expectedCategories: ['Bedding', 'Bath Linens', 'Home Textiles'], segment: 'home-goods' },
+  { domain: 'allbirds.com',       expectedCategories: ['Sustainable Footwear', 'Eco Fashion'], segment: 'home-goods' },
+  { domain: 'tentree.com',        expectedCategories: ['Sustainable Apparel', 'Eco Fashion'], segment: 'home-goods' },
+  { domain: 'casper.com',         expectedCategories: ['Mattresses', 'Sleep Products', 'Bedding'], segment: 'home-goods' },
+  { domain: 'tuftandneedle.com',  expectedCategories: ['Mattresses', 'Sleep Products'], segment: 'home-goods' },
+  { domain: 'saatva.com',         expectedCategories: ['Luxury Mattresses', 'Sleep Products'], segment: 'home-goods' },
 ];
 
 // ---------------------------------------------------------------------------
@@ -994,9 +1044,10 @@ export class ShopifyBrandCrawler extends BaseCrawler {
             'Search discovery results',
           );
 
-          // Heavy rate limiting with jitter between search queries
-          const baseDelay = 5000;
-          const jitter = Math.floor(Math.random() * 2000);
+          // API paths don't need heavy delays; browser fallback does
+          const usingBrowser = !process.env.BING_SEARCH_API_KEY && !process.env.BRAVE_SEARCH_API_KEY;
+          const baseDelay = usingBrowser ? 5000 : 500;
+          const jitter = Math.floor(Math.random() * (usingBrowser ? 2000 : 300));
           await this.sleep(baseDelay + jitter);
         } catch (err) {
           logger.warn({ query, error: (err as Error).message }, 'Search failed');
@@ -1010,24 +1061,99 @@ export class ShopifyBrandCrawler extends BaseCrawler {
   }
 
   // -------------------------------------------------------------------------
-  // Search engines — tries Bing first, falls back to Google
+  // Search engines — API-first, browser fallback, Google removed
+  // Priority: Bing API → Brave API → DuckDuckGo HTTP → Bing browser
   // -------------------------------------------------------------------------
 
   private async searchShopifyStores(browser: Browser, searchQuery: string): Promise<string[]> {
-    try {
-      const domains = await this.searchBing(browser, searchQuery);
-      if (domains.length > 0) return domains;
-      logger.debug({ query: searchQuery }, 'Bing returned 0 results — trying Google');
-    } catch (err) {
-      logger.warn({ query: searchQuery, error: (err as Error).message }, 'Bing search failed — trying Google');
+    if (process.env.BING_SEARCH_API_KEY) {
+      try {
+        const r = await this.searchBingApi(searchQuery);
+        if (r.length > 0) return r;
+      } catch (err) {
+        logger.debug({ query: searchQuery, error: (err as Error).message }, 'Bing API failed — continuing');
+      }
+    }
+
+    if (process.env.BRAVE_SEARCH_API_KEY) {
+      try {
+        const r = await this.searchBraveApi(searchQuery);
+        if (r.length > 0) return r;
+      } catch (err) {
+        logger.debug({ query: searchQuery, error: (err as Error).message }, 'Brave API failed — continuing');
+      }
     }
 
     try {
-      return await this.searchGoogle(browser, searchQuery);
+      const r = await this.searchDuckDuckGo(searchQuery);
+      if (r.length > 0) return r;
     } catch (err) {
-      logger.warn({ query: searchQuery, error: (err as Error).message }, 'Google search also failed');
+      logger.debug({ query: searchQuery, error: (err as Error).message }, 'DuckDuckGo failed — trying Bing browser');
+    }
+
+    try {
+      return await this.searchBing(browser, searchQuery);
+    } catch (err) {
+      logger.warn({ query: searchQuery, error: (err as Error).message }, 'All search methods failed');
       return [];
     }
+  }
+
+  private async searchBingApi(query: string): Promise<string[]> {
+    const key = process.env.BING_SEARCH_API_KEY;
+    if (!key) return [];
+    const url = `https://api.bing.microsoft.com/v7.0/search?q=${encodeURIComponent(query)}&count=20&responseFilter=Webpages`;
+    const res = await fetch(url, { headers: { 'Ocp-Apim-Subscription-Key': key } });
+    if (!res.ok) {
+      logger.warn({ status: res.status }, 'Bing Search API returned non-200');
+      return [];
+    }
+    const json = await res.json() as { webPages?: { value: Array<{ url: string }> } };
+    return (json.webPages?.value ?? [])
+      .map(r => { try { return new URL(r.url).hostname.toLowerCase(); } catch { return ''; } })
+      .filter(h => this.isShopifyDomain(h));
+  }
+
+  private async searchBraveApi(query: string): Promise<string[]> {
+    const key = process.env.BRAVE_SEARCH_API_KEY;
+    if (!key) return [];
+    const url = `https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(query)}&count=20`;
+    const res = await fetch(url, {
+      headers: { 'Accept': 'application/json', 'X-Subscription-Token': key },
+    });
+    if (!res.ok) {
+      logger.warn({ status: res.status }, 'Brave Search API returned non-200');
+      return [];
+    }
+    const json = await res.json() as { web?: { results: Array<{ url: string }> } };
+    return (json.web?.results ?? [])
+      .map(r => { try { return new URL(r.url).hostname.toLowerCase(); } catch { return ''; } })
+      .filter(h => this.isShopifyDomain(h));
+  }
+
+  private async searchDuckDuckGo(query: string): Promise<string[]> {
+    const url = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
+    const res = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      },
+    });
+    if (!res.ok) return [];
+    const html = await res.text();
+    const $ = cheerio.load(html);
+    const domains = new Set<string>();
+    $('a.result__a[href], .result__url').each((_, el) => {
+      const href = $(el).attr('href') ?? $(el).text().trim();
+      if (!href) return;
+      try {
+        const normalized = href.startsWith('http') ? href : `https://${href}`;
+        const hostname = new URL(normalized).hostname.toLowerCase();
+        if (this.isShopifyDomain(hostname)) domains.add(hostname);
+      } catch { /* skip malformed */ }
+    });
+    return [...domains];
   }
 
   private async searchBing(browser: Browser, searchQuery: string): Promise<string[]> {
@@ -1094,81 +1220,6 @@ export class ShopifyBrandCrawler extends BaseCrawler {
       }
 
       logger.debug({ query: searchQuery, found: domains.size }, 'Bing search results');
-      return [...domains];
-    } finally {
-      await page.close();
-      await context.close();
-    }
-  }
-
-  private async searchGoogle(browser: Browser, searchQuery: string): Promise<string[]> {
-    const context = await this.getStealthContext(browser);
-    const page = await context.newPage();
-
-    await page.route('**/*', (route: Route) => {
-      const type = route.request().resourceType();
-      if (['image', 'media', 'font', 'stylesheet'].includes(type)) {
-        void route.abort();
-      } else {
-        void route.continue();
-      }
-    });
-
-    try {
-      const url = `https://www.google.com/search?q=${encodeURIComponent(searchQuery)}&num=20&hl=en`;
-      logger.debug({ url }, 'Searching Google for Shopify stores');
-
-      const response = await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 20_000 });
-
-      if (!response || response.status() !== 200) {
-        logger.warn({ status: response?.status() }, 'Google returned non-200 status');
-        return [];
-      }
-
-      // Handle cookie consent / interstitial / CAPTCHA indicators
-      await this.handleInterstitial(page);
-
-      await this.sleep(2000 + Math.floor(Math.random() * 1000));
-
-      const html = await page.content();
-      const $ = cheerio.load(html);
-
-      // Detect CAPTCHA / blocking page
-      if (html.includes('unusual traffic') || html.includes('captcha') || html.includes('CAPTCHA')) {
-        logger.warn('Google detected bot — CAPTCHA or unusual traffic page');
-        return [];
-      }
-
-      const domains = new Set<string>();
-
-      const linkSelectors = [
-        'a[jsname="UWckNb"]',
-        '#rso .g a[href^="http"]:not([href*="google"])',
-        '#search a[href^="http"]:not([href*="google.com"])',
-        'h3[class] + a[href^="http"], h3[class] + * a[href^="http"]',
-        'a[ping][href^="http"]',
-      ];
-
-      for (const sel of linkSelectors) {
-        $(sel).each((_, el) => {
-          const href = $(el).attr('href');
-          if (!href) return;
-          try {
-            const hostname = new URL(href).hostname.toLowerCase();
-            if (this.isShopifyDomain(hostname)) domains.add(hostname);
-          } catch { /* skip */ }
-        });
-        if (domains.size > 0) break;
-      }
-
-      // Cite fallback
-      $('cite').each((_, el) => {
-        const text = $(el).text().trim().toLowerCase();
-        const match = text.match(/([a-z0-9-]+\.myshopify\.com)/);
-        if (match) domains.add(match[1]);
-      });
-
-      logger.debug({ query: searchQuery, found: domains.size }, 'Google search results');
       return [...domains];
     } finally {
       await page.close();

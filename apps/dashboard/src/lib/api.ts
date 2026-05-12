@@ -19,7 +19,7 @@ async function apiFetch<T>(
   }
   const res = await fetch(url.toString(), {
     headers: { 'x-api-key': API_KEY },
-    next: { revalidate },
+    ...(revalidate === 0 ? { cache: 'no-store' } : { next: { revalidate } }),
   });
   if (!res.ok) {
     const body = await res.text().catch(() => '');
@@ -121,7 +121,8 @@ export async function getSignals(params?: {
   since?: string;
   limit?: number;
 }): Promise<{ signals: Signal[]; limit: number }> {
-  return apiFetch('/api/signals', params as Record<string, string | number | boolean | undefined>);
+  // Signals payload regularly exceeds Next.js's 2 MB cache limit — skip caching.
+  return apiFetch('/api/signals', params as Record<string, string | number | boolean | undefined>, 0);
 }
 
 export async function getCrawlJobs(params?: {
@@ -575,6 +576,8 @@ export type DistributorMatch = {
   matchScore: number | null;
   matchReasons: string[] | null;
   status: string;
+  competitorProximity: 'exact' | 'adjacent' | null;
+  competitorCount: number | null;
   createdAt: string;
 };
 

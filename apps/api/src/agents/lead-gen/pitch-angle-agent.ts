@@ -1,7 +1,7 @@
 import { db } from '@/db/index.js';
 import { leads, niRoutingSignals, distributorBrandMatches, distributors, distributorBuyingIntent, regulatoryFlags } from '@/db/schema.js';
 import { logger } from '@/lib/logger.js';
-import { eq, and, isNull, avg, sql, or } from 'drizzle-orm';
+import { eq, and, isNull, avg, sql, or, isNotNull } from 'drizzle-orm';
 
 const DEEPSEEK_API_URL = 'https://api.deepseek.com/chat/completions';
 
@@ -120,21 +120,21 @@ export class PitchAngleAgent {
     }
   }
 
-  private async getDistributorMatches(leadId: string): Promise<Array<{ name: string; countryCode: string; intentStrength: number | null }>> {
+  private async getDistributorMatches(leadId: string): Promise<Array<{ name: string; countryCode: string; intentStrength: number | null; competitorProximity: string | null; competitorCount: number | null }>> {
     try {
       return await db
         .select({
-          name: distributors.name,
-          countryCode: distributors.countryCode,
-          intentStrength: distributorBuyingIntent.intentStrength,
+          name:                distributors.name,
+          countryCode:         distributors.countryCode,
+          intentStrength:      distributorBuyingIntent.intentStrength,
+          competitorProximity: distributorBrandMatches.competitorProximity,
+          competitorCount:     distributorBrandMatches.competitorCount,
         })
         .from(distributorBrandMatches)
         .innerJoin(distributors, eq(distributorBrandMatches.distributorId, distributors.id))
         .leftJoin(
           distributorBuyingIntent,
-          and(
-            eq(distributorBuyingIntent.distributorId, distributors.id),
-          ),
+          eq(distributorBuyingIntent.distributorId, distributors.id),
         )
         .where(eq(distributorBrandMatches.leadId, leadId))
         .limit(5);
@@ -169,7 +169,7 @@ export class PitchAngleAgent {
     angle: string,
     template: string,
     lead: { gapScore: number | null; trendTier: string | null },
-    distMatches: Array<{ name: string; countryCode: string }>,
+    distMatches: Array<{ name: string; countryCode: string; competitorProximity?: string | null; competitorCount?: number | null }>,
     topFlag: { riskLevel: string; description: string } | null,
   ): Promise<string> {
     const base = template
@@ -183,6 +183,16 @@ export class PitchAngleAgent {
     const distributorContext = distMatches.length > 0
       ? `Distributor pull: ${distMatches.map(m => `${m.name} (${m.countryCode})`).join(', ')} are actively sourcing this category.`
       : '';
+
+    // Competitor landscape — derived from CompetitorIntelligenceAgent output
+    const topMatch = distMatches.find(m => m.competitorProximity != null) ?? distMatches[0];
+    const competitorContext =
+      topMatch?.competitorProximity === 'exact'
+        ? `Competitor landscape: this distributor already carries ${topMatch.competitorCount ?? 1} direct competitor brand(s) in the same sub-category. Pitch should emphasise differentiation — unique formulation, origin story, or price tier.`
+        : topMatch?.competitorProximity === 'adjacent'
+        ? `Competitor landscape: distributor carries ${topMatch.competitorCount ?? 1} adjacent brand(s) in this category — strong proof of category demand. Position as an additive opportunity.`
+        : '';
+
     const regulatoryNote = topFlag
       ? `Regulatory note (${topFlag.riskLevel} risk): ${topFlag.description}`
       : 'No known compliance barriers for this category/market.';
@@ -196,6 +206,7 @@ Category: ${category}
 Target market: ${countryCode}
 Trend: ${lead.trendTier ?? 'sustained'}
 ${distributorContext}
+${competitorContext}
 ${regulatoryNote}`;
 
       const response = await fetch(DEEPSEEK_API_URL, {

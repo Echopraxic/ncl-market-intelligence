@@ -36,6 +36,7 @@ export class CrawlerScheduler {
   private readonly normalizationQueue: Queue;
   private readonly worker: Worker<Record<string, unknown>, CrawlResult>;
   private readonly factories = new Map<string, CrawlerFactory>();
+  private degraded = false;
 
   constructor({ redisUrl }: SchedulerOptions) {
     const connection = { url: redisUrl };
@@ -63,10 +64,17 @@ export class CrawlerScheduler {
 
     // Absorb connection errors from BullMQ internals so they don't surface as
     // unhandled rejections when Redis is unavailable (e.g. local dev without Redis 5+).
-    const onQueueError = (err: Error) => logger.warn({ err: err.message }, 'BullMQ queue connection error — scheduler running in degraded mode');
+    // Set degraded=true so trigger() knows to bypass the queue entirely.
+    const onQueueError = (err: Error) => {
+      this.degraded = true;
+      logger.warn({ err: err.message }, 'BullMQ queue connection error — scheduler running in degraded mode');
+    };
     this.queue.on('error', onQueueError);
     this.normalizationQueue.on('error', onQueueError);
-    this.worker.on('error', (err) => logger.warn({ err: err.message }, 'BullMQ worker connection error — scheduler running in degraded mode'));
+    this.worker.on('error', (err) => {
+      this.degraded = true;
+      logger.warn({ err: err.message }, 'BullMQ worker connection error — scheduler running in degraded mode');
+    });
 
     this.worker.on('completed', (job, result) => {
       logger.info(
@@ -116,6 +124,11 @@ export class CrawlerScheduler {
   async trigger(crawlerType: string): Promise<void> {
     if (!this.factories.has(crawlerType)) {
       throw new Error(`Unknown crawler type: ${crawlerType}`);
+    }
+    if (this.degraded) {
+      // Redis unavailable — run directly so the button actually works.
+      this.runDirect(crawlerType);
+      return;
     }
     await this.queue.add(crawlerType, {}, {
       jobId: `${crawlerType}-manual-${Date.now()}`,

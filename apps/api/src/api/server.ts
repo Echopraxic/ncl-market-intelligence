@@ -1725,5 +1725,14 @@ export async function buildServer({ scheduler }: ServerOptions = {}) {
     return reply.code(202).send({ accepted: true, message: 'Regulatory fit assessment started', note: 'Seeds regulatory_flags table on first run; updates leads.regulatory_risk_level' });
   });
 
+  // ── POST /api/agents/competitor-intel/run ─────────────────────────────────
+
+  app.post('/api/agents/competitor-intel/run', async (_request, reply) => {
+    const { CompetitorIntelligenceAgent } = await import('../agents/distributor/competitor-intel-agent.js');
+    const agent = new CompetitorIntelligenceAgent();
+    agent.run().catch((err: unknown) => logger.error({ err }, '[server] CompetitorIntelligenceAgent failed'));
+    return reply.code(202).send({ accepted: true, message: 'Competitor intelligence started', note: 'Classifies lead sub-categories, scrapes brand/distributor portfolio pages, updates match proximity scores' });
+  });
+
   return app;
 }
